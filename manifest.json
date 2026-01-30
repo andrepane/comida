@@ -1,6 +1,6 @@
 {
-  "name": "Meal Planner",
-  "short_name": "Meal Planner",
+  "name": "Tuppería",
+  "short_name": "Tuppería",
   "description": "Planificador de comidas con calendario, recetas y lista de la compra.",
   "start_url": ".",
   "display": "standalone",

@@ -1,5 +1,5 @@
 /***********************
- * Meal Planner (v2)
+ * Tuppería (v2)
  * - Calendario de 2 semanas (almuerzo/cena)
  * - Recetas sugeridas con filtros (saludable, thermomix, congelable, tupper)
  * - Recetas guardadas con filtro
