@@ -9,7 +9,8 @@
 const LS = {
   RECIPES: "mp_recipes_v2",
   PLAN: "mp_plan_v2",
-  SHOP_ITEMS: "mp_shop_items_v2"
+  SHOP_ITEMS: "mp_shop_items_v2",
+  CLIENT_ID: "mp_client_id_v2"
 };
 
 const DAYS_ES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -129,6 +130,13 @@ const SHOP_SUGGESTIONS = [
 ];
 
 let suggestedRecipesCache = null;
+let isApplyingRemote = false;
+let syncTimer = null;
+let lastRemoteUpdate = 0;
+let lastLocalSync = 0;
+const clientId = getClientId();
+let firestore = null;
+let syncDocRef = null;
 
 // --- DOM ---
 const tabs = Array.from(document.querySelectorAll(".tab"));
@@ -200,6 +208,8 @@ let selectedSimilarRecipeId = null;
 // --- INIT ---
 initTabs();
 ensurePlanWeekStart();
+initFirebaseSync();
+registerServiceWorker();
 renderWeek();
 renderSuggestedRecipes();
 renderSimilarSuggestions();
@@ -1188,6 +1198,78 @@ function getTwoWeekRange(startISO){
   return Array.from({ length: 14 }, (_, i) => addDaysISO(startISO, i));
 }
 
+// --- Sync (Firebase Firestore) ---
+function initFirebaseSync(){
+  if (!window.firebase || !window.FIREBASE_CONFIG) return;
+  if (!firebase.apps.length){
+    firebase.initializeApp(window.FIREBASE_CONFIG);
+  }
+  firestore = firebase.firestore();
+  syncDocRef = firestore.collection("mealPlanner").doc(window.FIREBASE_SYNC_DOC || "default");
+
+  syncDocRef.onSnapshot((snap) => {
+    const data = snap.data();
+    if (!data?.updatedAt || data.updatedAt <= lastRemoteUpdate) return;
+    if (data.updatedAt <= lastLocalSync) return;
+    if (data.updatedBy === clientId) return;
+    lastRemoteUpdate = data.updatedAt;
+    applyRemoteState(data);
+  });
+
+  scheduleSync();
+}
+
+function applyRemoteState(data){
+  if (!data?.payload) return;
+  isApplyingRemote = true;
+  const payload = data.payload;
+
+  if (Array.isArray(payload.recipes)){
+    recipes = payload.recipes.map(r => ensureRecipeData({ ...r, tags: r.tags || [], ingredients: r.ingredients || [] }));
+    saveRecipes(recipes);
+  }
+  if (payload.planState?.entries){
+    planState = payload.planState;
+    savePlanState(planState);
+  }
+  if (Array.isArray(payload.shoppingItems)){
+    shoppingItems = payload.shoppingItems;
+    saveShoppingItems(shoppingItems);
+  }
+
+  renderWeek();
+  renderSuggestedRecipes();
+  renderSimilarSuggestions();
+  renderMyRecipes();
+  renderShoppingList();
+  isApplyingRemote = false;
+}
+
+function scheduleSync(){
+  if (!syncDocRef) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(pushStateToRemote, 800);
+}
+
+function pushStateToRemote(){
+  if (!syncDocRef) return;
+  const payload = {
+    recipes,
+    planState,
+    shoppingItems
+  };
+  const now = Date.now();
+  lastLocalSync = now;
+  syncDocRef.set(
+    {
+      payload,
+      updatedAt: now,
+      updatedBy: clientId
+    },
+    { merge: true }
+  );
+}
+
 // --- STORAGE ---
 function loadRecipes(){
   try{
@@ -1217,6 +1299,7 @@ function loadRecipes(){
 
 function saveRecipes(arr){
   localStorage.setItem(LS.RECIPES, JSON.stringify(arr));
+  if (!isApplyingRemote) scheduleSync();
 }
 
 function loadPlanState(){
@@ -1239,6 +1322,7 @@ function loadPlanState(){
 
 function savePlanState(state){
   localStorage.setItem(LS.PLAN, JSON.stringify(state));
+  if (!isApplyingRemote) scheduleSync();
 }
 
 function loadLegacyPlan(){
@@ -1271,6 +1355,7 @@ function loadShoppingItems(){
 
 function saveShoppingItems(arr){
   localStorage.setItem(LS.SHOP_ITEMS, JSON.stringify(arr));
+  if (!isApplyingRemote) scheduleSync();
 }
 
 // --- Helpers: dates ---
@@ -1347,4 +1432,19 @@ function normalizeText(value){
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+}
+
+function getClientId(){
+  const existing = localStorage.getItem(LS.CLIENT_ID);
+  if (existing) return existing;
+  const next = cryptoId();
+  localStorage.setItem(LS.CLIENT_ID, next);
+  return next;
+}
+
+function registerServiceWorker(){
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js");
+  });
 }

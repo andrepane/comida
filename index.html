@@ -4,6 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Meal Planner</title>
+  <meta name="description" content="Planificador de comidas con calendario, recetas y lista de la compra." />
+  <meta name="theme-color" content="#3b82f6" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='36' fill='%233b82f6'/%3E%3Ctext x='50%25' y='54%25' font-size='90' text-anchor='middle' fill='white' font-family='Arial, sans-serif'%3E%F0%9F%8D%B2%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -245,6 +251,12 @@
     </form>
   </dialog>
 
+  <script>
+    window.FIREBASE_CONFIG = window.FIREBASE_CONFIG || null;
+    window.FIREBASE_SYNC_DOC = window.FIREBASE_SYNC_DOC || "default";
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
