@@ -7,26 +7,128 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Meal Planner</h1>
+      <p>Plan semanal (tupper + cenas) · Recetas · Compra</p>
+    </div>
 
-  <header>
-    <h1>Meal Planner</h1>
-    <p>Ideas de comidas sanas y para tupper</p>
+    <nav class="tabs" aria-label="Secciones">
+      <button class="tab active" data-tab="plan">Plan</button>
+      <button class="tab" data-tab="recipes">Recetas</button>
+      <button class="tab" data-tab="shop">Compra</button>
+    </nav>
   </header>
 
-  <main>
-    <section class="search">
-      <input type="text" id="searchInput" placeholder="Buscar receta (pollo, arroz, lentejas…)" />
-      <button id="searchBtn">Buscar</button>
+  <main class="container">
+    <!-- PLAN -->
+    <section id="tab-plan" class="tabpanel active" aria-labelledby="Plan">
+      <div class="plan-head">
+        <div class="week-controls">
+          <button id="prevWeekBtn" class="btn">← Semana</button>
+          <div class="week-title">
+            <div class="label">Semana</div>
+            <div id="weekRange" class="value">—</div>
+          </div>
+          <button id="nextWeekBtn" class="btn">Semana →</button>
+        </div>
+
+        <div class="plan-actions">
+          <button id="clearPlanBtn" class="btn danger">Vaciar semana</button>
+          <button id="copyPrevWeekBtn" class="btn">Copiar semana anterior</button>
+        </div>
+      </div>
+
+      <div class="grid" id="weekGrid" aria-label="Calendario semanal">
+        <!-- Se rellena por JS -->
+      </div>
+
+      <div class="hint">
+        Tip: haz clic en un hueco (almuerzo/cena) para asignar una receta.
+      </div>
     </section>
 
-    <section id="results" class="results">
-      <!-- recetas aquí -->
+    <!-- RECETAS -->
+    <section id="tab-recipes" class="tabpanel" aria-labelledby="Recetas">
+      <div class="recipes-layout">
+        <div class="card">
+          <div class="card-title">
+            <h2>Buscar en TheMealDB</h2>
+            <p class="muted">Busca en inglés. Si escribes en español, intento convertirlo (diccionario básico).</p>
+          </div>
+
+          <div class="search">
+            <input type="text" id="searchInput" placeholder="Ej: chicken, rice, lentils (o pollo, arroz...)" />
+            <button id="searchBtn" class="btn primary">Buscar</button>
+          </div>
+
+          <div class="info-row">
+            <div class="pill" id="searchLangInfo">—</div>
+            <div class="pill subtle">Fuente: TheMealDB</div>
+          </div>
+
+          <div id="results" class="results" aria-label="Resultados de búsqueda"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <h2>Mis recetas</h2>
+            <p class="muted">Las importadas se guardan en tu navegador (por ahora). Luego lo sincronizamos con Firebase.</p>
+          </div>
+
+          <div class="my-recipes-actions">
+            <button id="exportBtn" class="btn">Exportar JSON</button>
+            <label class="btn file">
+              Importar JSON
+              <input type="file" id="importFile" accept="application/json">
+            </label>
+            <button id="clearRecipesBtn" class="btn danger">Borrar recetas</button>
+          </div>
+
+          <div id="myRecipes" class="my-recipes" aria-label="Lista de mis recetas"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPRA -->
+    <section id="tab-shop" class="tabpanel" aria-labelledby="Compra">
+      <div class="card">
+        <div class="card-title">
+          <h2>Lista de la compra</h2>
+          <p class="muted">Se genera con los ingredientes de lo planificado en la semana.</p>
+        </div>
+
+        <div class="shop-actions">
+          <button id="regenShopBtn" class="btn primary">Generar / Actualizar</button>
+          <button id="clearShopChecksBtn" class="btn">Desmarcar todo</button>
+        </div>
+
+        <div id="shoppingList" class="shopping" aria-label="Lista de la compra"></div>
+      </div>
     </section>
   </main>
 
-  <footer>
-    <small>Datos de recetas: TheMealDB</small>
-  </footer>
+  <!-- MODAL: selector de receta para un slot -->
+  <dialog id="pickerDialog" class="dialog">
+    <form method="dialog" class="dialog-inner">
+      <div class="dialog-head">
+        <div>
+          <div class="dialog-kicker" id="pickerKicker">—</div>
+          <h3 id="pickerTitle">Elegir receta</h3>
+        </div>
+        <button class="icon-btn" value="cancel" aria-label="Cerrar">✕</button>
+      </div>
+
+      <input id="pickerSearch" class="dialog-search" type="text" placeholder="Filtrar mis recetas..." />
+
+      <div id="pickerList" class="picker-list"></div>
+
+      <div class="dialog-foot">
+        <button id="removeFromSlotBtn" class="btn danger" value="remove">Quitar del hueco</button>
+        <button class="btn" value="cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="app.js"></script>
 </body>
