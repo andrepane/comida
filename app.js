@@ -1,57 +1,124 @@
 /***********************
- * Meal Planner (v0)
- * - Plan semanal (almuerzo/cena)
- * - Buscar en TheMealDB (en inglés; diccionario ES->EN básico)
- * - Importar recetas a "Mis recetas" (localStorage)
- * - Lista de compra desde el plan semanal
+ * Meal Planner (v2)
+ * - Calendario de 2 semanas (almuerzo/cena)
+ * - Recetas sugeridas con filtros (saludable, thermomix, congelable, tupper)
+ * - Recetas guardadas con filtro
+ * - Lista de la compra con categorías y sugerencias
  ************************/
 
-const API_KEY = "1"; // TheMealDB test key
-const BASE_URL = `https://www.themealdb.com/api/json/v1/${API_KEY}`;
-
 const LS = {
-  RECIPES: "mp_recipes_v1",
-  PLAN: "mp_plan_v1",
-  SHOP_CHECKS: "mp_shop_checks_v1"
+  RECIPES: "mp_recipes_v2",
+  PLAN: "mp_plan_v2",
+  SHOP_ITEMS: "mp_shop_items_v2"
 };
 
 const DAYS_ES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-// Diccionario básico ES -> EN para búsquedas rápidas.
-// Amplíalo cuando te falte algo.
-const ES_TO_EN = {
-  "pollo": "chicken",
-  "pavo": "turkey",
-  "ternera": "beef",
-  "cerdo": "pork",
-  "atun": "tuna",
-  "atún": "tuna",
-  "salmón": "salmon",
-  "salmon": "salmon",
-  "arroz": "rice",
-  "pasta": "pasta",
-  "patata": "potato",
-  "papas": "potato",
-  "lentejas": "lentils",
-  "garbanzos": "chickpeas",
-  "judias": "beans",
-  "judías": "beans",
-  "huevos": "eggs",
-  "verduras": "vegetables",
-  "ensalada": "salad",
-  "tomate": "tomato",
-  "cebolla": "onion",
-  "ajo": "garlic",
-  "zanahoria": "carrot",
-  "calabacin": "zucchini",
-  "calabacín": "zucchini",
-  "pollo arroz": "chicken rice",
-  "carne": "meat",
-  "pescado": "fish",
-  "curry": "curry",
-  "mexicano": "mexican",
-  "italiano": "italian"
+const TAG_LABELS = {
+  saludable: "Saludable",
+  thermomix: "Thermomix",
+  congelable: "Congelable",
+  tupper: "Tupper",
+  rapida: "Rápida"
 };
+
+const CATEGORY_LABELS = {
+  verdura: "Verdura",
+  fruta: "Fruta",
+  carne: "Carne",
+  pescado: "Pescado",
+  lacteos: "Lácteos",
+  despensa: "Despensa",
+  congelados: "Congelados",
+  bebidas: "Bebidas",
+  limpieza: "Limpieza",
+  otros: "Otros"
+};
+
+const SUGGESTED_RECIPES = [
+  {
+    name: "Bowl de quinoa con verduras asadas",
+    tags: ["saludable", "tupper"],
+    source: "Just Eat / Ideas saludables",
+    url: "https://www.just-eat.es/",
+    ingredients: ["quinoa", "calabacín", "pimiento", "cebolla", "aceite de oliva"]
+  },
+  {
+    name: "Lentejas estofadas con verduras",
+    tags: ["saludable", "congelable", "tupper"],
+    source: "Directo al Paladar",
+    url: "https://www.directoalpaladar.com/",
+    ingredients: ["lentejas", "zanahoria", "puerro", "tomate", "laurel"]
+  },
+  {
+    name: "Pollo al curry con arroz integral",
+    tags: ["tupper", "congelable"],
+    source: "Recetas de cocina",
+    url: "https://www.recetasdecocina.com/",
+    ingredients: ["pollo", "curry", "arroz integral", "leche de coco", "cebolla"]
+  },
+  {
+    name: "Crema de calabaza (Thermomix)",
+    tags: ["saludable", "thermomix", "congelable"],
+    source: "Thermomix Magazine",
+    url: "https://www.thermomixmagazine.com/",
+    ingredients: ["calabaza", "zanahoria", "cebolla", "caldo vegetal"]
+  },
+  {
+    name: "Salmón al horno con verduras",
+    tags: ["saludable"],
+    source: "BBC Good Food",
+    url: "https://www.bbcgoodfood.com/",
+    ingredients: ["salmón", "brócoli", "limón", "ajo"]
+  },
+  {
+    name: "Pasta integral con pesto de espinacas",
+    tags: ["saludable", "tupper"],
+    source: "Bon Viveur",
+    url: "https://www.bonviveur.es/",
+    ingredients: ["pasta integral", "espinacas", "nueces", "ajo", "parmesano"]
+  },
+  {
+    name: "Albóndigas de pavo en salsa",
+    tags: ["congelable", "tupper"],
+    source: "Recetas de rechupete",
+    url: "https://www.recetasderechupete.com/",
+    ingredients: ["pavo", "tomate", "cebolla", "ajo"]
+  },
+  {
+    name: "Arroz con verduras (Thermomix)",
+    tags: ["thermomix", "saludable"],
+    source: "Thermomix España",
+    url: "https://www.thermomix.com/es/",
+    ingredients: ["arroz", "guisantes", "zanahoria", "judías verdes"]
+  },
+  {
+    name: "Tortilla de espinacas y queso",
+    tags: ["rapida", "tupper"],
+    source: "Recetas de desayuno",
+    url: "https://www.recetasdeescandalo.com/",
+    ingredients: ["huevos", "espinacas", "queso", "aceite de oliva"]
+  },
+  {
+    name: "Chili de verduras y alubias",
+    tags: ["saludable", "congelable", "tupper"],
+    source: "The Spruce Eats",
+    url: "https://www.thespruceeats.com/",
+    ingredients: ["alubias", "tomate", "pimiento", "maíz"]
+  }
+];
+
+const SHOP_SUGGESTIONS = [
+  { name: "Leche", category: "lacteos" },
+  { name: "Huevos", category: "despensa" },
+  { name: "Pollo", category: "carne" },
+  { name: "Salmón", category: "pescado" },
+  { name: "Plátanos", category: "fruta" },
+  { name: "Tomates", category: "verdura" },
+  { name: "Espinacas", category: "verdura" },
+  { name: "Arroz", category: "despensa" },
+  { name: "Café", category: "bebidas" },
+  { name: "Papel de cocina", category: "limpieza" }
+];
 
 // --- DOM ---
 const tabs = Array.from(document.querySelectorAll(".tab"));
@@ -71,35 +138,60 @@ const copyPrevWeekBtn = document.getElementById("copyPrevWeekBtn");
 const searchInput = document.getElementById("searchInput");
 const searchBtn = document.getElementById("searchBtn");
 const resultsEl = document.getElementById("results");
-const searchLangInfo = document.getElementById("searchLangInfo");
+const tagFilters = Array.from(document.querySelectorAll(".tag-filter input"));
 
 const myRecipesEl = document.getElementById("myRecipes");
 const clearRecipesBtn = document.getElementById("clearRecipesBtn");
-const exportBtn = document.getElementById("exportBtn");
-const importFile = document.getElementById("importFile");
+const myRecipeSearch = document.getElementById("myRecipeSearch");
+const myRecipeTag = document.getElementById("myRecipeTag");
+const customRecipeName = document.getElementById("customRecipeName");
+const customRecipeTags = document.getElementById("customRecipeTags");
+const customRecipeIngredients = document.getElementById("customRecipeIngredients");
+const customRecipeUrl = document.getElementById("customRecipeUrl");
+const addCustomRecipeBtn = document.getElementById("addCustomRecipeBtn");
 
 const shoppingListEl = document.getElementById("shoppingList");
-const regenShopBtn = document.getElementById("regenShopBtn");
+const addFromPlanBtn = document.getElementById("addFromPlanBtn");
 const clearShopChecksBtn = document.getElementById("clearShopChecksBtn");
+const shopItemName = document.getElementById("shopItemName");
+const shopItemQty = document.getElementById("shopItemQty");
+const shopItemCategory = document.getElementById("shopItemCategory");
+const addShopItemBtn = document.getElementById("addShopItemBtn");
+const suggestionChips = document.getElementById("suggestionChips");
 
 const pickerDialog = document.getElementById("pickerDialog");
 const pickerKicker = document.getElementById("pickerKicker");
-const pickerTitle = document.getElementById("pickerTitle");
 const pickerSearch = document.getElementById("pickerSearch");
+const pickerTagFilter = document.getElementById("pickerTagFilter");
 const pickerList = document.getElementById("pickerList");
 const removeFromSlotBtn = document.getElementById("removeFromSlotBtn");
+const slotTextInput = document.getElementById("slotTextInput");
+const slotSaveAsRecipe = document.getElementById("slotSaveAsRecipe");
+const slotTagsInput = document.getElementById("slotTagsInput");
+const slotIngredientsInput = document.getElementById("slotIngredientsInput");
+const slotUrlInput = document.getElementById("slotUrlInput");
+const slotSaveBtn = document.getElementById("slotSaveBtn");
+
+const assignDialog = document.getElementById("assignDialog");
+const assignDay = document.getElementById("assignDay");
+const assignMeal = document.getElementById("assignMeal");
+const assignConfirmBtn = document.getElementById("assignConfirmBtn");
 
 // --- STATE ---
-let recipes = loadRecipes(); // {id, name, source, ingredients[], instructions, createdAt}
-let plan = loadPlan();       // {weekStartISO, slots: { [slotId]: recipeId|null } }
-let pickerContext = null;    // { slotId, dayISO, mealType }
+let recipes = loadRecipes();
+let planState = loadPlanState();
+let shoppingItems = loadShoppingItems();
+let pickerContext = null; // { slotId, dayISO, mealType }
+let assignRecipeId = null;
 
 // --- INIT ---
 initTabs();
 ensurePlanWeekStart();
 renderWeek();
+renderSuggestedRecipes();
 renderMyRecipes();
-renderShoppingList(); // render last generated / checks
+renderShoppingList();
+renderSuggestionChips();
 
 // --- TABS ---
 function initTabs(){
@@ -119,52 +211,58 @@ prevWeekBtn.addEventListener("click", () => shiftWeek(-7));
 nextWeekBtn.addEventListener("click", () => shiftWeek(7));
 
 clearPlanBtn.addEventListener("click", () => {
-  if (!confirm("¿Vaciar toda la semana actual?")) return;
-  plan.slots = {};
-  savePlan(plan);
+  if (!confirm("¿Vaciar estas 2 semanas?")) return;
+  const range = getTwoWeekRange(planState.currentWeekStart);
+  range.forEach(dayISO => delete planState.entries[dayISO]);
+  savePlanState(planState);
   renderWeek();
 });
 
 copyPrevWeekBtn.addEventListener("click", () => {
-  const prevWeekStart = addDaysISO(plan.weekStartISO, -7);
-  const prevPlan = loadPlanForWeek(prevWeekStart);
-  plan.slots = { ...(prevPlan?.slots || {}) };
-  savePlan(plan);
+  const start = planState.currentWeekStart;
+  const currentRange = getTwoWeekRange(start);
+  currentRange.forEach((dayISO, index) => {
+    const prevDay = addDaysISO(start, index - 14);
+    const prevEntry = planState.entries[prevDay];
+    if (prevEntry) {
+      planState.entries[dayISO] = {
+        lunch: cloneSlot(prevEntry.lunch),
+        dinner: cloneSlot(prevEntry.dinner)
+      };
+    }
+  });
+  savePlanState(planState);
   renderWeek();
 });
 
 function ensurePlanWeekStart(){
-  // Semana basada en lunes (puedes cambiar a viernes si quieres luego)
-  // Para viernes-a-viernes es un ajuste; de momento lo hacemos estándar.
-  if (!plan.weekStartISO){
-    plan.weekStartISO = mondayOfISO(todayISO());
-    plan.slots = {};
-    savePlan(plan);
+  if (!planState.currentWeekStart){
+    planState.currentWeekStart = mondayOfISO(todayISO());
+    savePlanState(planState);
   }
 }
 
 function shiftWeek(deltaDays){
-  plan.weekStartISO = addDaysISO(plan.weekStartISO, deltaDays);
-  plan.slots = loadPlanForWeek(plan.weekStartISO)?.slots || {};
-  savePlan(plan);
+  planState.currentWeekStart = addDaysISO(planState.currentWeekStart, deltaDays);
+  savePlanState(planState);
   renderWeek();
 }
 
 function renderWeek(){
-  const start = plan.weekStartISO;
-  const end = addDaysISO(start, 6);
+  const start = planState.currentWeekStart;
+  const end = addDaysISO(start, 13);
   weekRangeEl.textContent = `${formatDateShort(start)} → ${formatDateShort(end)}`;
 
   weekGridEl.innerHTML = "";
-  for (let i=0;i<7;i++){
-    const dayISO = addDaysISO(start, i);
+  const range = getTwoWeekRange(start);
+  range.forEach((dayISO, index) => {
     const day = document.createElement("div");
-    day.className = "day";
+    day.className = "day" + (index === 7 ? " week-divider" : "");
 
     const head = document.createElement("div");
     head.className = "day-head";
     head.innerHTML = `
-      <div class="day-name">${DAYS_ES[i]}</div>
+      <div class="day-name">${DAYS_ES[index % 7]}</div>
       <div class="day-date">${formatDayMonth(dayISO)}</div>
     `;
     day.appendChild(head);
@@ -173,56 +271,113 @@ function renderWeek(){
     day.appendChild(renderSlot(dayISO, "dinner", "Cena"));
 
     weekGridEl.appendChild(day);
-  }
+  });
+  refreshAssignDialogOptions();
 }
 
 function renderSlot(dayISO, mealType, label){
-  const slotId = `${dayISO}_${mealType}`;
-  const recipeId = plan.slots[slotId] || null;
-  const recipe = recipeId ? recipes.find(r => r.id === recipeId) : null;
+  const slotData = getSlot(dayISO, mealType);
+  const info = resolveSlotInfo(slotData);
 
   const el = document.createElement("div");
-  el.className = "slot" + (recipe ? "" : " empty");
-  el.dataset.slotId = slotId;
+  el.className = "slot" + (info.isEmpty ? " empty" : "");
+  el.dataset.slotId = `${dayISO}_${mealType}`;
 
   el.innerHTML = `
     <div class="slot-label">${label}</div>
-    <div class="slot-value">${recipe ? escapeHtml(recipe.name) : "— vacío —"}</div>
+    <div class="slot-value">${info.title}</div>
+    ${info.meta ? `<div class="slot-meta">${info.meta}</div>` : ""}
   `;
 
-  el.addEventListener("click", () => openPicker({ slotId, dayISO, mealType }));
+  el.addEventListener("click", () => openPicker({ slotId: `${dayISO}_${mealType}`, dayISO, mealType }));
   return el;
+}
+
+function resolveSlotInfo(slotData){
+  if (!slotData || !slotData.type){
+    return { title: "— vacío —", isEmpty: true, meta: null };
+  }
+
+  if (slotData.type === "recipe"){
+    const recipe = recipes.find(r => r.id === slotData.value);
+    if (!recipe) return { title: "Receta eliminada", isEmpty: false, meta: "Receta" };
+    return { title: escapeHtml(recipe.name), isEmpty: false, meta: "Receta guardada" };
+  }
+
+  return { title: escapeHtml(slotData.value || "(sin título)"), isEmpty: false, meta: "Plato libre" };
 }
 
 function openPicker(ctx){
   pickerContext = ctx;
+  const existingSlot = getSlot(ctx.dayISO, ctx.mealType);
   pickerKicker.textContent = `${formatDateLong(ctx.dayISO)} · ${ctx.mealType === "lunch" ? "Almuerzo" : "Cena"}`;
-  pickerTitle.textContent = "Elegir receta";
   pickerSearch.value = "";
-  renderPickerList(recipes, ctx.slotId);
+  pickerTagFilter.value = "all";
+  slotTextInput.value = existingSlot?.type === "text" ? existingSlot.value : "";
+  slotSaveAsRecipe.checked = false;
+  slotTagsInput.value = "";
+  slotIngredientsInput.value = "";
+  slotUrlInput.value = "";
+  renderPickerList(getFilteredRecipesForPicker(), ctx.slotId);
   pickerDialog.showModal();
 }
 
 pickerSearch.addEventListener("input", () => {
-  const q = pickerSearch.value.trim().toLowerCase();
-  const filtered = q
-    ? recipes.filter(r => r.name.toLowerCase().includes(q))
-    : recipes;
-  renderPickerList(filtered, pickerContext?.slotId);
+  renderPickerList(getFilteredRecipesForPicker(), pickerContext?.slotId);
 });
 
-removeFromSlotBtn.addEventListener("click", (e) => {
-  // Esto se ejecuta porque es un botón dentro del form dialog
+pickerTagFilter.addEventListener("change", () => {
+  renderPickerList(getFilteredRecipesForPicker(), pickerContext?.slotId);
+});
+
+slotSaveBtn.addEventListener("click", () => {
   if (!pickerContext) return;
-  delete plan.slots[pickerContext.slotId];
-  savePlan(plan);
+  const title = slotTextInput.value.trim();
+  if (!title){
+    alert("Escribe el nombre del plato para guardar.");
+    return;
+  }
+  if (slotSaveAsRecipe.checked){
+    const newRecipe = createRecipe({
+      name: title,
+      tags: parseTags(slotTagsInput.value),
+      ingredients: parseIngredients(slotIngredientsInput.value),
+      source: "Personal",
+      url: slotUrlInput.value.trim()
+    });
+    recipes.unshift(newRecipe);
+    saveRecipes(recipes);
+    setSlot(pickerContext.dayISO, pickerContext.mealType, { type: "recipe", value: newRecipe.id });
+    renderMyRecipes();
+  } else {
+    setSlot(pickerContext.dayISO, pickerContext.mealType, { type: "text", value: title });
+  }
+  savePlanState(planState);
+  renderWeek();
+  pickerDialog.close();
+});
+
+removeFromSlotBtn.addEventListener("click", () => {
+  if (!pickerContext) return;
+  clearSlot(pickerContext.dayISO, pickerContext.mealType);
+  savePlanState(planState);
   renderWeek();
 });
+
+function getFilteredRecipesForPicker(){
+  const q = pickerSearch.value.trim().toLowerCase();
+  const tag = pickerTagFilter.value;
+  return recipes.filter(r => {
+    const matchesQuery = !q || r.name.toLowerCase().includes(q);
+    const matchesTag = tag === "all" || r.tags.includes(tag);
+    return matchesQuery && matchesTag;
+  });
+}
 
 function renderPickerList(list, slotId){
   pickerList.innerHTML = "";
   if (!list.length){
-    pickerList.innerHTML = `<div class="muted">No tienes recetas aún. Importa alguna desde “Buscar”.</div>`;
+    pickerList.innerHTML = `<div class="muted">No hay recetas guardadas con este filtro.</div>`;
     return;
   }
 
@@ -232,13 +387,14 @@ function renderPickerList(list, slotId){
     row.innerHTML = `
       <div>
         <div><strong>${escapeHtml(r.name)}</strong></div>
-        <div class="muted">${r.ingredients.length} ingredientes</div>
+        <div class="muted">${r.ingredients.length} ingredientes · ${formatTags(r.tags)}</div>
       </div>
       <button class="btn primary" type="button">Asignar</button>
     `;
     row.querySelector("button").addEventListener("click", () => {
-      plan.slots[slotId] = r.id;
-      savePlan(plan);
+      const [dayISO, mealType] = slotId.split("_");
+      setSlot(dayISO, mealType, { type: "recipe", value: r.id });
+      savePlanState(planState);
       renderWeek();
       pickerDialog.close();
     });
@@ -246,173 +402,120 @@ function renderPickerList(list, slotId){
   });
 }
 
-// --- SEARCH (TheMealDB) ---
-searchBtn.addEventListener("click", async () => {
-  const raw = searchInput.value.trim();
-  if (!raw) return;
-  await searchMeals(raw);
-});
-
+// --- RECIPES ---
+searchBtn.addEventListener("click", () => renderSuggestedRecipes());
 searchInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") searchBtn.click();
 });
 
-async function searchMeals(rawQuery){
-  resultsEl.innerHTML = `<div class="muted">Buscando…</div>`;
+tagFilters.forEach(cb => cb.addEventListener("change", renderSuggestedRecipes));
 
-  const { queryEN, info } = normalizeQueryToEnglish(rawQuery);
-  searchLangInfo.textContent = info;
+function renderSuggestedRecipes(){
+  const query = searchInput.value.trim().toLowerCase();
+  const activeTags = tagFilters.filter(cb => cb.checked).map(cb => cb.value);
 
-  try{
-    const res = await fetch(`${BASE_URL}/search.php?s=${encodeURIComponent(queryEN)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    renderResults(data.meals || [], rawQuery, queryEN);
-  }catch(err){
-    console.error(err);
-    resultsEl.innerHTML = `<div class="muted">Error buscando recetas.</div>`;
-  }
-}
+  const filtered = SUGGESTED_RECIPES.filter(r => {
+    const matchesQuery = !query || r.name.toLowerCase().includes(query);
+    const matchesTags = !activeTags.length || activeTags.every(tag => r.tags.includes(tag));
+    return matchesQuery && matchesTags;
+  });
 
-function normalizeQueryToEnglish(raw){
-  const lower = raw.toLowerCase().trim();
-
-  // Si el usuario ya mete inglés, no molestamos.
-  // Heurística: si contiene solo letras y espacios, puede ser cualquiera; así que usamos diccionario por palabras.
-  // Convertimos palabra a palabra si están en ES_TO_EN.
-  const tokens = lower.split(/\s+/).filter(Boolean);
-  let changed = false;
-  const mapped = tokens.map(t => {
-    if (ES_TO_EN[t]) { changed = true; return ES_TO_EN[t]; }
-    return t;
-  }).join(" ");
-
-  // Frases completas más específicas
-  const phrase = ES_TO_EN[lower];
-  if (phrase) {
-    return { queryEN: phrase, info: `Consulta: "${raw}" → "${phrase}" (ES→EN)` };
-  }
-
-  if (changed) {
-    return { queryEN: mapped, info: `Consulta: "${raw}" → "${mapped}" (ES→EN)` };
-  }
-
-  return { queryEN: raw, info: `Consulta en inglés: "${raw}"` };
-}
-
-function renderResults(meals, rawQuery, queryEN){
-  if (!meals.length){
-    resultsEl.innerHTML = `<div class="muted">No hay resultados para "${escapeHtml(queryEN)}".</div>`;
+  resultsEl.innerHTML = "";
+  if (!filtered.length){
+    resultsEl.innerHTML = `<div class="muted">No hay resultados con estos filtros.</div>`;
     return;
   }
 
-  resultsEl.innerHTML = "";
-  meals.forEach(meal => {
+  filtered.forEach(recipe => {
     const card = document.createElement("div");
     card.className = "recipe-card";
 
     card.innerHTML = `
-      <img src="${meal.strMealThumb}" alt="${escapeHtml(meal.strMeal)}">
+      <div class="image">Idea saludable</div>
       <div class="content">
-        <h3>${escapeHtml(meal.strMeal)}</h3>
-        <div class="muted">${meal.strArea ? escapeHtml(meal.strArea) : "—"} · ${meal.strCategory ? escapeHtml(meal.strCategory) : "—"}</div>
+        <h3>${escapeHtml(recipe.name)}</h3>
+        <div class="muted">${escapeHtml(recipe.source)}</div>
+        <div class="tags">${recipe.tags.map(tag => `<span class="tag">${TAG_LABELS[tag] || tag}</span>`).join("")}</div>
         <div class="actions">
-          <button class="btn primary" type="button">Importar</button>
-          <button class="btn" type="button">Importar + asignar…</button>
+          <button class="btn primary" type="button">Guardar</button>
+          <button class="btn" type="button">Guardar + asignar</button>
+          <a class="btn" href="${recipe.url}" target="_blank" rel="noopener">Ver receta</a>
         </div>
       </div>
     `;
 
-    const [btnImport, btnImportAssign] = card.querySelectorAll("button");
-    btnImport.addEventListener("click", () => {
-      const r = importMeal(meal);
-      if (!r) return;
-      alert("Receta importada a 'Mis recetas'.");
+    const [btnSave, btnSaveAssign] = card.querySelectorAll("button");
+    btnSave.addEventListener("click", () => {
+      const saved = saveSuggestedRecipe(recipe);
+      if (!saved) return;
       renderMyRecipes();
+      alert("Receta guardada en 'Mis recetas'.");
     });
 
-    btnImportAssign.addEventListener("click", () => {
-      const r = importMeal(meal);
-      if (!r) return;
+    btnSaveAssign.addEventListener("click", () => {
+      const saved = saveSuggestedRecipe(recipe);
+      if (!saved) return;
       renderMyRecipes();
-      // Abrir picker para asignar esta receta rápidamente:
-      // Reutilizamos el picker pero prefiltrando (solo esa receta).
-      // Mejor: abrir un mini prompt rápido:
-      const slot = pickSlotQuick();
-      if (!slot) return;
-      plan.slots[slot] = r.id;
-      savePlan(plan);
-      renderWeek();
-      alert("Asignada en el calendario.");
+      openAssignDialog(saved.id);
     });
 
     resultsEl.appendChild(card);
   });
 }
 
-function pickSlotQuick(){
-  // UX simple (sin liarla): pide día y tipo con prompts.
-  // Luego lo mejoraremos con un modal bonito.
-  const dayIndex = prompt("¿Qué día? 1=Lun ... 7=Dom");
-  if (!dayIndex) return null;
-  const idx = Number(dayIndex) - 1;
-  if (Number.isNaN(idx) || idx < 0 || idx > 6) return null;
-
-  const type = prompt("¿almuerzo o cena? (a/c)");
-  if (!type) return null;
-  const mealType = type.toLowerCase().startsWith("a") ? "lunch" : "dinner";
-
-  const dayISO = addDaysISO(plan.weekStartISO, idx);
-  return `${dayISO}_${mealType}`;
-}
-
-// --- IMPORT / RECIPES ---
-function importMeal(meal){
-  // Evitar duplicados por idMeal
-  const existing = recipes.find(r => r.sourceId === meal.idMeal);
-  if (existing) return existing;
-
-  const imported = {
-    id: cryptoId(),
-    source: "TheMealDB",
-    sourceId: meal.idMeal,
-    name: meal.strMeal,
-    ingredients: extractIngredients(meal),
-    instructions: meal.strInstructions || "",
-    createdAt: Date.now()
-  };
-
-  recipes.unshift(imported);
-  saveRecipes(recipes);
-  return imported;
-}
-
-function extractIngredients(meal){
-  const list = [];
-  for (let i = 1; i <= 20; i++) {
-    const ing = (meal[`strIngredient${i}`] || "").trim();
-    const mea = (meal[`strMeasure${i}`] || "").trim();
-    if (!ing) continue;
-    list.push({ name: ing, measure: mea });
+addCustomRecipeBtn.addEventListener("click", () => {
+  const name = customRecipeName.value.trim();
+  if (!name){
+    alert("Escribe el nombre de la receta.");
+    return;
   }
-  return list;
-}
+  const newRecipe = createRecipe({
+    name,
+    tags: parseTags(customRecipeTags.value),
+    ingredients: parseIngredients(customRecipeIngredients.value),
+    source: "Personal",
+    url: customRecipeUrl.value.trim()
+  });
+  recipes.unshift(newRecipe);
+  saveRecipes(recipes);
+  customRecipeName.value = "";
+  customRecipeTags.value = "";
+  customRecipeIngredients.value = "";
+  customRecipeUrl.value = "";
+  renderMyRecipes();
+});
+
+myRecipeSearch.addEventListener("input", renderMyRecipes);
+myRecipeTag.addEventListener("change", renderMyRecipes);
 
 function renderMyRecipes(){
   myRecipesEl.innerHTML = "";
-
   if (!recipes.length){
-    myRecipesEl.innerHTML = `<div class="muted">Aún no tienes recetas. Busca e importa algunas.</div>`;
+    myRecipesEl.innerHTML = `<div class="muted">Aún no tienes recetas. Guarda alguna idea desde la búsqueda.</div>`;
     return;
   }
 
-  recipes.forEach(r => {
+  const q = myRecipeSearch.value.trim().toLowerCase();
+  const tag = myRecipeTag.value;
+
+  const filtered = recipes.filter(r => {
+    const matchesQuery = !q || r.name.toLowerCase().includes(q);
+    const matchesTag = tag === "all" || r.tags.includes(tag);
+    return matchesQuery && matchesTag;
+  });
+
+  if (!filtered.length){
+    myRecipesEl.innerHTML = `<div class="muted">No hay recetas con este filtro.</div>`;
+    return;
+  }
+
+  filtered.forEach(r => {
     const row = document.createElement("div");
     row.className = "my-recipe-item";
     row.innerHTML = `
       <div class="left">
         <div><strong>${escapeHtml(r.name)}</strong></div>
-        <div class="meta">${r.ingredients.length} ingredientes · ${r.source}</div>
+        <div class="meta">${r.ingredients.length} ingredientes · ${formatTags(r.tags)}</div>
       </div>
       <div class="right">
         <button class="btn" type="button">Asignar…</button>
@@ -421,27 +524,14 @@ function renderMyRecipes(){
     `;
 
     row.querySelectorAll("button")[0].addEventListener("click", () => {
-      // Asignar: el usuario primero clica en un slot en Plan.
-      // Aquí abrimos el selector de slot rápido:
-      const slot = pickSlotQuick();
-      if (!slot) return;
-      plan.slots[slot] = r.id;
-      savePlan(plan);
-      renderWeek();
-      alert("Asignada en el calendario.");
+      openAssignDialog(r.id);
     });
 
     row.querySelectorAll("button")[1].addEventListener("click", () => {
       if (!confirm(`¿Eliminar "${r.name}"?`)) return;
       recipes = recipes.filter(x => x.id !== r.id);
       saveRecipes(recipes);
-
-      // Quitar del plan donde estuviera
-      Object.keys(plan.slots).forEach(k => {
-        if (plan.slots[k] === r.id) delete plan.slots[k];
-      });
-      savePlan(plan);
-
+      removeRecipeFromPlan(r.id);
       renderMyRecipes();
       renderWeek();
     });
@@ -454,165 +544,312 @@ clearRecipesBtn.addEventListener("click", () => {
   if (!confirm("¿Borrar TODAS tus recetas guardadas?")) return;
   recipes = [];
   saveRecipes(recipes);
-  // limpiar plan también por consistencia
-  plan.slots = {};
-  savePlan(plan);
+  planState.entries = {};
+  savePlanState(planState);
   renderMyRecipes();
   renderWeek();
 });
 
-exportBtn.addEventListener("click", () => {
-  const payload = { recipes, exportedAt: new Date().toISOString() };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "meal-planner-recipes.json";
-  a.click();
-  URL.revokeObjectURL(a.href);
-});
+function saveSuggestedRecipe(recipe){
+  const existing = recipes.find(r => r.source === recipe.source && r.name === recipe.name);
+  if (existing) return existing;
+  const saved = createRecipe({
+    name: recipe.name,
+    tags: recipe.tags,
+    ingredients: recipe.ingredients,
+    source: recipe.source,
+    url: recipe.url
+  });
+  recipes.unshift(saved);
+  saveRecipes(recipes);
+  return saved;
+}
 
-importFile.addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  try{
-    const text = await file.text();
-    const json = JSON.parse(text);
-    if (!json.recipes || !Array.isArray(json.recipes)) throw new Error("Formato inválido");
-    // Merge por sourceId si existe, si no por name
-    const incoming = json.recipes;
-    const map = new Map(recipes.map(r => [r.sourceId || r.name, r]));
-    incoming.forEach(r => {
-      const key = r.sourceId || r.name;
-      if (!map.has(key)) map.set(key, r);
-    });
-    recipes = Array.from(map.values()).sort((a,b) => (b.createdAt||0)-(a.createdAt||0));
-    saveRecipes(recipes);
-    renderMyRecipes();
-    alert("Importadas.");
-  }catch(err){
-    console.error(err);
-    alert("Error importando JSON.");
-  }finally{
-    importFile.value = "";
-  }
+function createRecipe({ name, tags, ingredients, source, url }){
+  return {
+    id: cryptoId(),
+    name,
+    tags: Array.from(new Set(tags || [])).filter(Boolean),
+    ingredients: ingredients || [],
+    source: source || "Personal",
+    url: url || "",
+    createdAt: Date.now()
+  };
+}
+
+function formatTags(tags){
+  if (!tags?.length) return "sin etiquetas";
+  return tags.map(tag => TAG_LABELS[tag] || tag).join(" · ");
+}
+
+function parseTags(raw){
+  return raw
+    .split(/,|\n/)
+    .map(t => t.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function parseIngredients(raw){
+  return raw
+    .split(/,|\n/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map(name => ({ name }));
+}
+
+// --- Assign dialog ---
+function openAssignDialog(recipeId){
+  assignRecipeId = recipeId;
+  refreshAssignDialogOptions();
+  assignDialog.showModal();
+}
+
+function refreshAssignDialogOptions(){
+  if (!assignDay) return;
+  const range = getTwoWeekRange(planState.currentWeekStart);
+  assignDay.innerHTML = "";
+  range.forEach(dayISO => {
+    const opt = document.createElement("option");
+    opt.value = dayISO;
+    opt.textContent = formatDateLong(dayISO);
+    assignDay.appendChild(opt);
+  });
+}
+
+assignConfirmBtn.addEventListener("click", () => {
+  if (!assignRecipeId) return;
+  const dayISO = assignDay.value;
+  const mealType = assignMeal.value;
+  setSlot(dayISO, mealType, { type: "recipe", value: assignRecipeId });
+  savePlanState(planState);
+  renderWeek();
+  assignDialog.close();
 });
 
 // --- SHOPPING LIST ---
-regenShopBtn.addEventListener("click", () => {
-  const list = generateShoppingFromPlan();
-  saveShopChecks({}); // reset checks on regenerate
-  renderShoppingList(list);
-  // cambiar a tab compra
-  activateTab("shop");
-});
-
-clearShopChecksBtn.addEventListener("click", () => {
-  saveShopChecks({});
+addShopItemBtn.addEventListener("click", () => {
+  const name = shopItemName.value.trim();
+  if (!name){
+    alert("Escribe un ingrediente.");
+    return;
+  }
+  const newItem = {
+    id: cryptoId(),
+    name,
+    qty: shopItemQty.value.trim(),
+    category: shopItemCategory.value,
+    checked: false,
+    addedAt: Date.now()
+  };
+  shoppingItems.unshift(newItem);
+  saveShoppingItems(shoppingItems);
+  shopItemName.value = "";
+  shopItemQty.value = "";
   renderShoppingList();
 });
 
-function generateShoppingFromPlan(){
-  const counts = new Map(); // key: normalized ingredient + measure text
-  const plannedIds = Object.values(plan.slots).filter(Boolean);
+addFromPlanBtn.addEventListener("click", () => {
+  const added = addIngredientsFromPlan();
+  if (!added){
+    alert("No hay ingredientes que añadir desde el plan actual.");
+  }
+  renderShoppingList();
+});
 
-  plannedIds.forEach(recipeId => {
-    const r = recipes.find(x => x.id === recipeId);
-    if (!r) return;
-    r.ingredients.forEach(ing => {
-      const name = normalizeIng(ing.name);
-      const measure = (ing.measure || "").trim();
-      const key = `${name}__${measure}`;
-      const prev = counts.get(key) || { name: ing.name.trim(), measure, qty: 0 };
-      prev.qty += 1;
-      counts.set(key, prev);
+clearShopChecksBtn.addEventListener("click", () => {
+  shoppingItems = shoppingItems.map(item => ({ ...item, checked: false }));
+  saveShoppingItems(shoppingItems);
+  renderShoppingList();
+});
+
+function renderSuggestionChips(){
+  suggestionChips.innerHTML = "";
+  SHOP_SUGGESTIONS.forEach(item => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "suggestion-chip";
+    chip.textContent = `${item.name} · ${CATEGORY_LABELS[item.category]}`;
+    chip.addEventListener("click", () => {
+      shoppingItems.unshift({
+        id: cryptoId(),
+        name: item.name,
+        qty: "",
+        category: item.category,
+        checked: false,
+        addedAt: Date.now()
+      });
+      saveShoppingItems(shoppingItems);
+      renderShoppingList();
     });
+    suggestionChips.appendChild(chip);
   });
-
-  // Convertimos a lista. Como TheMealDB trae medidas texto, no sumamos gramos; repetimos xN.
-  const out = Array.from(counts.values()).map(x => ({
-    id: cryptoId(),
-    name: x.name,
-    measure: x.measure,
-    qty: x.qty
-  })).sort((a,b) => a.name.localeCompare(b.name));
-
-  // Guardamos la lista actual en memoria (opcional)
-  lastGeneratedShopping = out;
-  return out;
 }
 
-let lastGeneratedShopping = null;
-
-function renderShoppingList(listOverride){
-  const list = listOverride || lastGeneratedShopping || generateShoppingFromPlan();
-  const checks = loadShopChecks();
-
+function renderShoppingList(){
   shoppingListEl.innerHTML = "";
-
-  if (!list.length){
-    shoppingListEl.innerHTML = `<div class="muted">No hay nada planificado. Ve a “Plan” y asigna comidas.</div>`;
+  if (!shoppingItems.length){
+    shoppingListEl.innerHTML = `<div class="muted">Aún no tienes ingredientes. Añade algunos o genera desde el plan.</div>`;
     return;
   }
 
-  list.forEach(item => {
+  const recentItems = [...shoppingItems]
+    .sort((a,b) => b.addedAt - a.addedAt)
+    .slice(0, 5);
+
+  shoppingListEl.appendChild(renderShopSection("Añadido recientemente", recentItems));
+
+  const grouped = groupByCategory(shoppingItems);
+  Object.keys(CATEGORY_LABELS).forEach(category => {
+    if (!grouped[category]?.length) return;
+    shoppingListEl.appendChild(renderShopSection(CATEGORY_LABELS[category], grouped[category]));
+  });
+}
+
+function renderShopSection(title, items){
+  const section = document.createElement("div");
+  section.className = "shop-section";
+  section.innerHTML = `<h3>${title}</h3>`;
+
+  items.forEach(item => {
     const row = document.createElement("div");
     row.className = "shop-item";
-
-    const key = shopKey(item);
-    const checked = !!checks[key];
-
     row.innerHTML = `
       <label>
-        <input type="checkbox" ${checked ? "checked" : ""} />
+        <input type="checkbox" ${item.checked ? "checked" : ""} />
         <div>
           <div class="name">${escapeHtml(item.name)}</div>
-          <div class="measure">${escapeHtml(formatMeasureQty(item))}</div>
+          <div class="measure">${escapeHtml(item.qty || "")}</div>
         </div>
       </label>
       <button class="btn danger" type="button">Quitar</button>
     `;
 
     row.querySelector("input").addEventListener("change", (e) => {
-      const c = loadShopChecks();
-      if (e.target.checked) c[key] = true;
-      else delete c[key];
-      saveShopChecks(c);
+      item.checked = e.target.checked;
+      saveShoppingItems(shoppingItems);
     });
 
     row.querySelector("button").addEventListener("click", () => {
-      // Quitar del listado generado (no del plan)
-      const newList = list.filter(x => shopKey(x) !== key);
-      lastGeneratedShopping = newList;
-      renderShoppingList(newList);
-      // Mantener checks limpios
-      const c = loadShopChecks();
-      delete c[key];
-      saveShopChecks(c);
+      shoppingItems = shoppingItems.filter(x => x.id !== item.id);
+      saveShoppingItems(shoppingItems);
+      renderShoppingList();
     });
 
-    shoppingListEl.appendChild(row);
+    section.appendChild(row);
   });
+
+  return section;
 }
 
-function formatMeasureQty(item){
-  const m = item.measure ? item.measure : "—";
-  return item.qty > 1 ? `${m} ×${item.qty}` : m;
+function addIngredientsFromPlan(){
+  const range = getTwoWeekRange(planState.currentWeekStart);
+  let added = false;
+
+  range.forEach(dayISO => {
+    const entry = planState.entries[dayISO];
+    if (!entry) return;
+    [entry.lunch, entry.dinner].forEach(slot => {
+      if (!slot || slot.type !== "recipe") return;
+      const recipe = recipes.find(r => r.id === slot.value);
+      if (!recipe || !recipe.ingredients.length) return;
+      recipe.ingredients.forEach(ing => {
+        const normalized = normalizeName(ing.name);
+        const exists = shoppingItems.find(item => normalizeName(item.name) === normalized);
+        if (exists) return;
+        shoppingItems.unshift({
+          id: cryptoId(),
+          name: ing.name,
+          qty: "",
+          category: guessCategory(ing.name),
+          checked: false,
+          addedAt: Date.now()
+        });
+        added = true;
+      });
+    });
+  });
+
+  saveShoppingItems(shoppingItems);
+  return added;
 }
 
-function shopKey(item){
-  return `${normalizeIng(item.name)}__${(item.measure||"").trim()}`;
+function groupByCategory(items){
+  return items.reduce((acc, item) => {
+    const key = item.category || "otros";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
 }
 
-function normalizeIng(s){
-  return (s || "").trim().toLowerCase().replace(/\s+/g, " ");
+function guessCategory(name){
+  const n = normalizeName(name);
+  if (/pollo|ternera|cerdo|pavo|carne/.test(n)) return "carne";
+  if (/salmon|salmón|atun|atún|pescado|merluza/.test(n)) return "pescado";
+  if (/manzana|platano|plátano|pera|fresa|fruta/.test(n)) return "fruta";
+  if (/lechuga|tomate|zanahoria|cebolla|pimiento|brocoli|brócoli|verdura/.test(n)) return "verdura";
+  if (/leche|queso|yogur|mantequilla/.test(n)) return "lacteos";
+  if (/agua|refresco|zumo|cafe|café|vino/.test(n)) return "bebidas";
+  return "despensa";
 }
 
-// --- HELPERS: LocalStorage ---
+// --- PLAN HELPERS ---
+function getSlot(dayISO, mealType){
+  const entry = planState.entries[dayISO];
+  return entry ? entry[mealType] : null;
+}
+
+function setSlot(dayISO, mealType, slotData){
+  if (!planState.entries[dayISO]){
+    planState.entries[dayISO] = { lunch: null, dinner: null };
+  }
+  planState.entries[dayISO][mealType] = slotData;
+}
+
+function clearSlot(dayISO, mealType){
+  if (!planState.entries[dayISO]) return;
+  planState.entries[dayISO][mealType] = null;
+}
+
+function removeRecipeFromPlan(recipeId){
+  Object.values(planState.entries).forEach(entry => {
+    if (entry?.lunch?.type === "recipe" && entry.lunch.value === recipeId) entry.lunch = null;
+    if (entry?.dinner?.type === "recipe" && entry.dinner.value === recipeId) entry.dinner = null;
+  });
+  savePlanState(planState);
+}
+
+function cloneSlot(slot){
+  if (!slot) return null;
+  return { ...slot };
+}
+
+function getTwoWeekRange(startISO){
+  return Array.from({ length: 14 }, (_, i) => addDaysISO(startISO, i));
+}
+
+// --- STORAGE ---
 function loadRecipes(){
   try{
     const raw = localStorage.getItem(LS.RECIPES);
     const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
+    if (Array.isArray(arr) && arr.length){
+      return arr.map(r => ({ ...r, tags: r.tags || [], ingredients: r.ingredients || [] }));
+    }
+    const legacyRaw = localStorage.getItem("mp_recipes_v1");
+    if (legacyRaw){
+      const legacyArr = JSON.parse(legacyRaw);
+      if (Array.isArray(legacyArr)){
+        return legacyArr.map(r => ({
+          ...r,
+          tags: r.tags || [],
+          ingredients: r.ingredients || [],
+          source: r.source || "Importado",
+          url: r.url || ""
+        }));
+      }
+    }
+    return [];
   }catch{
     return [];
   }
@@ -622,46 +859,58 @@ function saveRecipes(arr){
   localStorage.setItem(LS.RECIPES, JSON.stringify(arr));
 }
 
-function loadPlan(){
+function loadPlanState(){
   try{
     const raw = localStorage.getItem(LS.PLAN);
-    const obj = raw ? JSON.parse(raw) : null;
-    if (!obj || typeof obj !== "object") return { weekStartISO: null, slots: {} };
-    if (!obj.slots) obj.slots = {};
-    return obj;
+    if (raw){
+      const parsed = JSON.parse(raw);
+      if (parsed?.entries) return parsed;
+    }
   }catch{
-    return { weekStartISO: null, slots: {} };
+    // ignore
   }
+  // migrate from old v1 if exists
+  const legacy = loadLegacyPlan();
+  if (legacy){
+    return legacy;
+  }
+  return { currentWeekStart: null, entries: {} };
 }
 
-function loadPlanForWeek(weekStartISO){
+function savePlanState(state){
+  localStorage.setItem(LS.PLAN, JSON.stringify(state));
+}
+
+function loadLegacyPlan(){
   try{
-    const raw = localStorage.getItem(LS.PLAN);
-    const obj = raw ? JSON.parse(raw) : null;
-    if (!obj || typeof obj !== "object") return null;
-    if (obj.weekStartISO !== weekStartISO) return null;
-    return obj;
+    const raw = localStorage.getItem("mp_plan_v1");
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj?.weekStartISO) return null;
+    const entries = {};
+    Object.entries(obj.slots || {}).forEach(([slotId, value]) => {
+      const [dayISO, mealType] = slotId.split("_");
+      if (!entries[dayISO]) entries[dayISO] = { lunch: null, dinner: null };
+      entries[dayISO][mealType] = { type: "recipe", value };
+    });
+    return { currentWeekStart: obj.weekStartISO, entries };
   }catch{
     return null;
   }
 }
 
-function savePlan(obj){
-  localStorage.setItem(LS.PLAN, JSON.stringify(obj));
-}
-
-function loadShopChecks(){
+function loadShoppingItems(){
   try{
-    const raw = localStorage.getItem(LS.SHOP_CHECKS);
-    const obj = raw ? JSON.parse(raw) : {};
-    return obj && typeof obj === "object" ? obj : {};
+    const raw = localStorage.getItem(LS.SHOP_ITEMS);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
   }catch{
-    return {};
+    return [];
   }
 }
 
-function saveShopChecks(obj){
-  localStorage.setItem(LS.SHOP_CHECKS, JSON.stringify(obj));
+function saveShoppingItems(arr){
+  localStorage.setItem(LS.SHOP_ITEMS, JSON.stringify(arr));
 }
 
 // --- Helpers: dates ---
@@ -675,8 +924,8 @@ function todayISO(){
 
 function mondayOfISO(iso){
   const d = new Date(iso + "T00:00:00");
-  const day = d.getDay(); // 0 Sun..6 Sat
-  const diff = (day === 0 ? -6 : 1 - day); // move to Monday
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1 - day);
   d.setDate(d.getDate() + diff);
   return toISO(d);
 }
@@ -711,7 +960,6 @@ function formatDateLong(iso){
 
 // --- Helpers: misc ---
 function cryptoId(){
-  // simple, enough for local
   return (crypto?.randomUUID ? crypto.randomUUID() : `id_${Math.random().toString(16).slice(2)}_${Date.now()}`);
 }
 
@@ -727,4 +975,8 @@ function escapeHtml(str){
 function activateTab(key){
   tabs.forEach(b => b.classList.toggle("active", b.dataset.tab === key));
   Object.entries(panels).forEach(([k,p]) => p.classList.toggle("active", k === key));
+}
+
+function normalizeName(value){
+  return String(value || "").trim().toLowerCase();
 }
