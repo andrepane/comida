@@ -255,6 +255,16 @@ body{
   gap: .9rem;
 }
 
+.similar-section{
+  margin-top: 1.5rem;
+}
+
+.similar-head{
+  display:flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .recipe-card{
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -356,6 +366,11 @@ body{
   display:flex;
   gap:.5rem;
   flex-wrap: wrap;
+}
+
+.my-recipe-item.selected{
+  border-color: var(--accent);
+  background: #ecfeff;
 }
 
 .shopping{
