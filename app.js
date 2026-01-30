@@ -18,7 +18,15 @@ const TAG_LABELS = {
   thermomix: "Thermomix",
   congelable: "Congelable",
   tupper: "Tupper",
-  rapida: "Rápida"
+  rapida: "Rápida",
+  alta_proteina: "Alta proteína",
+  vegetariana: "Vegetariana"
+};
+
+const META_DEFAULTS = {
+  protein: "desconocido",
+  base: "desconocido",
+  technique: "desconocido"
 };
 
 const CATEGORY_LABELS = {
@@ -120,6 +128,8 @@ const SHOP_SUGGESTIONS = [
   { name: "Papel de cocina", category: "limpieza" }
 ];
 
+let suggestedRecipesCache = null;
+
 // --- DOM ---
 const tabs = Array.from(document.querySelectorAll(".tab"));
 const panels = {
@@ -138,6 +148,8 @@ const copyPrevWeekBtn = document.getElementById("copyPrevWeekBtn");
 const searchInput = document.getElementById("searchInput");
 const searchBtn = document.getElementById("searchBtn");
 const resultsEl = document.getElementById("results");
+const similarResultsEl = document.getElementById("similarResults");
+const similarHintEl = document.getElementById("similarHint");
 const tagFilters = Array.from(document.querySelectorAll(".tag-filter input"));
 
 const myRecipesEl = document.getElementById("myRecipes");
@@ -183,12 +195,14 @@ let planState = loadPlanState();
 let shoppingItems = loadShoppingItems();
 let pickerContext = null; // { slotId, dayISO, mealType }
 let assignRecipeId = null;
+let selectedSimilarRecipeId = null;
 
 // --- INIT ---
 initTabs();
 ensurePlanWeekStart();
 renderWeek();
 renderSuggestedRecipes();
+renderSimilarSuggestions();
 renderMyRecipes();
 renderShoppingList();
 renderSuggestionChips();
@@ -349,8 +363,15 @@ slotSaveBtn.addEventListener("click", () => {
     saveRecipes(recipes);
     setSlot(pickerContext.dayISO, pickerContext.mealType, { type: "recipe", value: newRecipe.id });
     renderMyRecipes();
+    renderSimilarSuggestions();
   } else {
-    setSlot(pickerContext.dayISO, pickerContext.mealType, { type: "text", value: title });
+    const detected = detectTagsFromText(title);
+    setSlot(pickerContext.dayISO, pickerContext.mealType, {
+      type: "text",
+      value: title,
+      tags: detected.tags,
+      meta: detected.meta
+    });
   }
   savePlanState(planState);
   renderWeek();
@@ -403,7 +424,13 @@ function renderPickerList(list, slotId){
 }
 
 // --- RECIPES ---
-searchBtn.addEventListener("click", () => renderSuggestedRecipes());
+searchBtn.addEventListener("click", () => {
+  renderSuggestedRecipes();
+  renderSimilarSuggestions();
+});
+searchInput.addEventListener("input", () => {
+  renderSimilarSuggestions();
+});
 searchInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") searchBtn.click();
 });
@@ -413,7 +440,7 @@ tagFilters.forEach(cb => cb.addEventListener("change", renderSuggestedRecipes));
 function renderSuggestedRecipes(){
   const query = searchInput.value.trim().toLowerCase();
   const activeTags = tagFilters.filter(cb => cb.checked).map(cb => cb.value);
-  const filtered = filterRecipes(SUGGESTED_RECIPES, query, activeTags);
+  const filtered = filterRecipes(getSuggestedRecipes(), query, activeTags);
   if (!filtered.length){
     resultsEl.innerHTML = `<div class="muted">No hay resultados con estos filtros.</div>`;
     return;
@@ -447,6 +474,7 @@ function renderSuggestedRecipeCards(list){
       const saved = saveSuggestedRecipe(recipe);
       if (!saved) return;
       renderMyRecipes();
+      renderSimilarSuggestions();
       alert("Receta guardada en 'Mis recetas'.");
     });
 
@@ -454,11 +482,129 @@ function renderSuggestedRecipeCards(list){
       const saved = saveSuggestedRecipe(recipe);
       if (!saved) return;
       renderMyRecipes();
+      renderSimilarSuggestions();
       openAssignDialog(saved.id);
     });
 
     resultsEl.appendChild(card);
   });
+}
+
+function renderSimilarSuggestions(){
+  if (!similarResultsEl || !similarHintEl) return;
+  const query = searchInput.value.trim();
+  let target = null;
+  let label = "";
+
+  if (query){
+    target = query;
+    label = `Basado en “${query}”`;
+  } else if (selectedSimilarRecipeId){
+    const recipe = recipes.find(r => r.id === selectedSimilarRecipeId);
+    if (recipe){
+      target = recipe;
+      label = `Basado en “${recipe.name}”`;
+    }
+  }
+
+  if (!target){
+    similarHintEl.textContent = "Escribe algo en el buscador o elige una receta guardada para ver sugerencias.";
+    similarResultsEl.innerHTML = `<div class="muted">Sin sugerencias aún.</div>`;
+    return;
+  }
+
+  const pool = buildSimilarityPool(6);
+  const similar = getSimilarRecipes(target, pool, 6);
+  similarHintEl.textContent = label;
+
+  if (!similar.length){
+    similarResultsEl.innerHTML = `<div class="muted">No hay sugerencias parecidas todavía.</div>`;
+    return;
+  }
+
+  renderSimilarRecipeCards(similar);
+}
+
+function renderSimilarRecipeCards(list){
+  similarResultsEl.innerHTML = "";
+
+  list.forEach(recipe => {
+    const card = document.createElement("div");
+    card.className = "recipe-card";
+
+    const tagsHtml = recipe.tags.map(tag => `<span class="tag">${TAG_LABELS[tag] || tag}</span>`).join("");
+    const actions = document.createElement("div");
+    actions.className = "actions";
+
+    if (recipe.id){
+      const assignBtn = document.createElement("button");
+      assignBtn.className = "btn primary";
+      assignBtn.type = "button";
+      assignBtn.textContent = "Asignar";
+      assignBtn.addEventListener("click", () => openAssignDialog(recipe.id));
+      actions.appendChild(assignBtn);
+    } else {
+      const saveBtn = document.createElement("button");
+      saveBtn.className = "btn primary";
+      saveBtn.type = "button";
+      saveBtn.textContent = "Guardar";
+      saveBtn.addEventListener("click", () => {
+        const saved = saveSuggestedRecipe(recipe);
+        if (!saved) return;
+        renderMyRecipes();
+        renderSimilarSuggestions();
+        alert("Receta guardada en 'Mis recetas'.");
+      });
+
+      const saveAssignBtn = document.createElement("button");
+      saveAssignBtn.className = "btn";
+      saveAssignBtn.type = "button";
+      saveAssignBtn.textContent = "Guardar + asignar";
+      saveAssignBtn.addEventListener("click", () => {
+        const saved = saveSuggestedRecipe(recipe);
+        if (!saved) return;
+        renderMyRecipes();
+        renderSimilarSuggestions();
+        openAssignDialog(saved.id);
+      });
+
+      actions.appendChild(saveBtn);
+      actions.appendChild(saveAssignBtn);
+    }
+
+    if (recipe.url){
+      const link = document.createElement("a");
+      link.className = "btn";
+      link.href = recipe.url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = "Ver receta";
+      actions.appendChild(link);
+    }
+
+    card.innerHTML = `
+      <div class="image">Sugerencia</div>
+      <div class="content">
+        <h3>${escapeHtml(recipe.name)}</h3>
+        <div class="muted">${escapeHtml(recipe.source || "Personal")}</div>
+        <div class="tags">${tagsHtml}</div>
+      </div>
+    `;
+
+    card.querySelector(".content").appendChild(actions);
+    similarResultsEl.appendChild(card);
+  });
+}
+
+function buildSimilarityPool(limit){
+  const pool = recipes.map(r => ensureRecipeData({ ...r }));
+  if (pool.length >= limit) return pool;
+
+  getSuggestedRecipes().forEach(seed => {
+    const exists = pool.some(r => r.name === seed.name && r.source === seed.source);
+    if (!exists) pool.push(seed);
+  });
+  return pool;
 }
 
 function filterRecipes(list, query, activeTags){
@@ -502,6 +648,7 @@ addCustomRecipeBtn.addEventListener("click", () => {
   customRecipeIngredients.value = "";
   customRecipeUrl.value = "";
   renderMyRecipes();
+  renderSimilarSuggestions();
 });
 
 myRecipeSearch.addEventListener("input", renderMyRecipes);
@@ -531,28 +678,41 @@ function renderMyRecipes(){
   filtered.forEach(r => {
     const row = document.createElement("div");
     row.className = "my-recipe-item";
+    row.classList.toggle("selected", r.id === selectedSimilarRecipeId);
     row.innerHTML = `
       <div class="left">
         <div><strong>${escapeHtml(r.name)}</strong></div>
         <div class="meta">${r.ingredients.length} ingredientes · ${formatTags(r.tags)}</div>
       </div>
       <div class="right">
+        <button class="btn" type="button">Similares</button>
         <button class="btn" type="button">Asignar…</button>
         <button class="btn danger" type="button">Eliminar</button>
       </div>
     `;
 
-    row.querySelectorAll("button")[0].addEventListener("click", () => {
+    const [btnSimilar, btnAssign, btnDelete] = row.querySelectorAll("button");
+    btnSimilar.addEventListener("click", () => {
+      selectedSimilarRecipeId = r.id;
+      renderMyRecipes();
+      renderSimilarSuggestions();
+    });
+
+    btnAssign.addEventListener("click", () => {
       openAssignDialog(r.id);
     });
 
-    row.querySelectorAll("button")[1].addEventListener("click", () => {
+    btnDelete.addEventListener("click", () => {
       if (!confirm(`¿Eliminar "${r.name}"?`)) return;
       recipes = recipes.filter(x => x.id !== r.id);
+      if (selectedSimilarRecipeId === r.id){
+        selectedSimilarRecipeId = null;
+      }
       saveRecipes(recipes);
       removeRecipeFromPlan(r.id);
       renderMyRecipes();
       renderWeek();
+      renderSimilarSuggestions();
     });
 
     myRecipesEl.appendChild(row);
@@ -562,11 +722,13 @@ function renderMyRecipes(){
 clearRecipesBtn.addEventListener("click", () => {
   if (!confirm("¿Borrar TODAS tus recetas guardadas?")) return;
   recipes = [];
+  selectedSimilarRecipeId = null;
   saveRecipes(recipes);
   planState.entries = {};
   savePlanState(planState);
   renderMyRecipes();
   renderWeek();
+  renderSimilarSuggestions();
 });
 
 function saveSuggestedRecipe(recipe){
@@ -577,21 +739,26 @@ function saveSuggestedRecipe(recipe){
     tags: recipe.tags,
     ingredients: normalizeIngredientList(recipe.ingredients || []),
     source: recipe.source,
-    url: recipe.url
+    url: recipe.url,
+    meta: recipe.meta
   });
   recipes.unshift(saved);
   saveRecipes(recipes);
   return saved;
 }
 
-function createRecipe({ name, tags, ingredients, source, url }){
+function createRecipe({ name, tags, ingredients, source, url, meta }){
+  const detected = detectTagsFromText(name);
+  const resolvedTags = tags?.length ? tags : detected.tags;
+  const resolvedMeta = mergeMeta(meta, detected.meta);
   return {
     id: cryptoId(),
     name,
-    tags: Array.from(new Set(tags || [])).filter(Boolean),
+    tags: Array.from(new Set(resolvedTags || [])).filter(Boolean),
     ingredients: ingredients || [],
     source: source || "Personal",
     url: url || "",
+    meta: resolvedMeta,
     createdAt: Date.now()
   };
 }
@@ -614,6 +781,180 @@ function parseIngredients(raw){
     .map(item => item.trim())
     .filter(Boolean)
     .map(name => ({ name }));
+}
+
+function getSuggestedRecipes(){
+  if (!suggestedRecipesCache){
+    suggestedRecipesCache = SUGGESTED_RECIPES.map(recipe => ensureRecipeData({
+      ...recipe,
+      tags: recipe.tags || [],
+      ingredients: normalizeIngredientList(recipe.ingredients || [])
+    }));
+  }
+  return suggestedRecipesCache;
+}
+
+// Detecta tags y metadatos desde texto (offline).
+function detectTagsFromText(text){
+  const normalized = normalizeText(text);
+  const tags = new Set();
+  const meta = { ...META_DEFAULTS };
+
+  if (!normalized) return { tags: [], meta };
+
+  const hasAny = (words) => words.some(word => normalized.includes(normalizeText(word)));
+
+  const proteinHits = [];
+  if (hasAny(["pollo", "pechuga", "ternera", "cerdo", "pavo", "carne"])){
+    proteinHits.push("carne");
+  }
+  if (hasAny(["salmon", "salmón", "atun", "atún", "merluza", "pescado"])){
+    proteinHits.push("pescado");
+  }
+  if (hasAny(["lentejas", "garbanzos", "alubias", "judias", "judías", "legumbres"])){
+    proteinHits.push("legumbres");
+  }
+  if (hasAny(["huevo", "huevos", "tortilla"])){
+    proteinHits.push("huevos");
+  }
+
+  const isVegetarian = hasAny(["vegetariano", "vegetariana", "vegano", "vegana", "vegetal"]);
+  if (isVegetarian){
+    meta.protein = "vegetariano";
+  } else if (proteinHits.length === 1){
+    meta.protein = proteinHits[0];
+  } else if (proteinHits.length > 1){
+    meta.protein = "mixto";
+  }
+
+  const baseRules = [
+    ["arroz", ["arroz", "integral"]],
+    ["pasta", ["pasta", "macarrones", "espagueti", "espaguetis"]],
+    ["patata", ["patata", "papas", "papa"]],
+    ["pan", ["pan", "bocadillo", "tosta"]],
+    ["quinoa", ["quinoa"]],
+    ["cuscus", ["cuscus", "cuscús"]],
+    ["legumbre", ["lentejas", "garbanzos", "alubias", "judias", "judías", "legumbre"]],
+    ["verdura", ["verdura", "verduras", "calabacin", "calabacín", "brocoli", "brócoli"]],
+    ["ninguna", ["sin base"]]
+  ];
+
+  for (const [base, words] of baseRules){
+    if (hasAny(words)){
+      meta.base = base;
+      break;
+    }
+  }
+
+  const hasThermomix = normalized.includes("thermomix");
+  if (hasThermomix){
+    meta.technique = "thermomix";
+  } else if (hasAny(["ensalada"])){
+    meta.technique = "ensalada";
+  } else if (hasAny(["plancha"])){
+    meta.technique = "plancha";
+  } else if (hasAny(["sarten", "sartén", "salteado", "saltear"])){
+    meta.technique = "salteado";
+  } else if (hasAny(["horno", "asado", "asada", "asados"])){
+    meta.technique = "horno";
+  } else if (hasAny(["guiso", "estofado", "estofada", "estofadas"])){
+    meta.technique = "guiso";
+  } else if (hasAny(["crema", "pure", "puré"])){
+    meta.technique = "guiso";
+  } else if (hasAny(["vapor"])){
+    meta.technique = "vapor";
+  } else if (hasAny(["freidora", "airfryer", "air fryer"])){
+    meta.technique = "freidora";
+  } else if (hasAny(["crudo", "tartar"])){
+    meta.technique = "crudo";
+  }
+
+  const healthyWords = ["ensalada", "plancha", "verduras", "integral"];
+  const congelableWords = ["guiso", "estofado", "lentejas", "albondigas", "albóndigas", "curry", "salsa"];
+  const tupperWords = ["bowl", "tupper", "meal prep", "para llevar"];
+  const fastWords = ["rapido", "rápido", "rapida", "rápida"];
+
+  if (["carne", "pescado", "huevos", "legumbres", "mixto"].includes(meta.protein)){
+    tags.add("alta_proteina");
+  }
+  if (meta.protein === "vegetariano"){
+    tags.add("vegetariana");
+  }
+  if (hasThermomix){
+    tags.add("thermomix");
+  }
+  if (hasAny(healthyWords)){
+    tags.add("saludable");
+  }
+  if (hasAny(congelableWords)){
+    tags.add("congelable");
+    tags.add("tupper");
+  }
+  if (hasAny(tupperWords)){
+    tags.add("tupper");
+  }
+  if (hasAny(fastWords) || /\b(10|15)\s*min\b/.test(normalized)){
+    tags.add("rapida");
+  }
+
+  return { tags: Array.from(tags), meta };
+}
+
+// Sugiere recetas similares según meta y tags.
+function getSimilarRecipes(targetRecipeOrText, list, limit = 6){
+  const target = typeof targetRecipeOrText === "string"
+    ? detectTagsFromText(targetRecipeOrText)
+    : ensureRecipeData({ ...targetRecipeOrText });
+
+  const targetTags = new Set(target.tags || []);
+  const targetMeta = target.meta || META_DEFAULTS;
+  const wantsTupper = targetTags.has("tupper");
+  const wantsCongelable = targetTags.has("congelable");
+
+  const scored = list
+    .map(recipe => {
+      const data = ensureRecipeData({ ...recipe });
+      if (target.id && data.id && target.id === data.id) return null;
+      if (!target.id && target.name && data.name && target.name === data.name) return null;
+
+      let score = 0;
+      if (targetMeta.protein !== "desconocido" && data.meta?.protein === targetMeta.protein) score += 3;
+      if (targetMeta.base !== "desconocido" && data.meta?.base === targetMeta.base) score += 2;
+      if (targetMeta.technique !== "desconocido" && data.meta?.technique === targetMeta.technique) score += 2;
+
+      targetTags.forEach(tag => {
+        if (data.tags?.includes(tag)) score += 1;
+      });
+
+      if (wantsTupper && !data.tags?.includes("tupper")) score -= 2;
+      if (wantsCongelable && !data.tags?.includes("congelable")) score -= 2;
+
+      return { recipe: data, score };
+    })
+    .filter(Boolean)
+    .sort((a,b) => b.score - a.score);
+
+  return scored.filter(item => item.score > 0).slice(0, limit).map(item => item.recipe);
+}
+
+function ensureRecipeData(recipe){
+  const detected = detectTagsFromText(recipe.name);
+  const tags = Array.from(new Set((recipe.tags?.length ? recipe.tags : detected.tags) || [])).filter(Boolean);
+  return {
+    ...recipe,
+    tags,
+    meta: mergeMeta(recipe.meta, detected.meta)
+  };
+}
+
+function mergeMeta(existing, detected){
+  const merged = { ...META_DEFAULTS, ...(existing || {}) };
+  Object.keys(merged).forEach(key => {
+    if (!merged[key] || merged[key] === "desconocido"){
+      merged[key] = detected[key] || merged[key];
+    }
+  });
+  return merged;
 }
 
 // --- Assign dialog ---
@@ -853,13 +1194,13 @@ function loadRecipes(){
     const raw = localStorage.getItem(LS.RECIPES);
     const arr = raw ? JSON.parse(raw) : [];
     if (Array.isArray(arr) && arr.length){
-      return arr.map(r => ({ ...r, tags: r.tags || [], ingredients: r.ingredients || [] }));
+      return arr.map(r => ensureRecipeData({ ...r, tags: r.tags || [], ingredients: r.ingredients || [] }));
     }
     const legacyRaw = localStorage.getItem("mp_recipes_v1");
     if (legacyRaw){
       const legacyArr = JSON.parse(legacyRaw);
       if (Array.isArray(legacyArr)){
-        return legacyArr.map(r => ({
+        return legacyArr.map(r => ensureRecipeData({
           ...r,
           tags: r.tags || [],
           ingredients: r.ingredients || [],
@@ -997,5 +1338,13 @@ function activateTab(key){
 }
 
 function normalizeName(value){
-  return String(value || "").trim().toLowerCase();
+  return normalizeText(value);
+}
+
+function normalizeText(value){
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
