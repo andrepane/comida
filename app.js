@@ -10,7 +10,8 @@ const LS = {
   RECIPES: "mp_recipes_v2",
   PLAN: "mp_plan_v2",
   SHOP_ITEMS: "mp_shop_items_v2",
-  CLIENT_ID: "mp_client_id_v2"
+  CLIENT_ID: "mp_client_id_v2",
+  LAST_UPDATED: "mp_last_updated_v2"
 };
 
 const DAYS_ES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -134,6 +135,7 @@ let isApplyingRemote = false;
 let syncTimer = null;
 let lastRemoteUpdate = 0;
 let lastLocalSync = 0;
+let lastLocalUpdate = loadLastUpdated();
 const clientId = getClientId();
 let firestore = null;
 let syncDocRef = null;
@@ -1211,6 +1213,7 @@ function initFirebaseSync(){
     const data = snap.data();
     if (!data?.updatedAt || data.updatedAt <= lastRemoteUpdate) return;
     if (data.updatedAt <= lastLocalSync) return;
+    if (data.updatedAt <= lastLocalUpdate) return;
     if (data.updatedBy === clientId) return;
     lastRemoteUpdate = data.updatedAt;
     applyRemoteState(data);
@@ -1242,6 +1245,7 @@ function applyRemoteState(data){
   renderSimilarSuggestions();
   renderMyRecipes();
   renderShoppingList();
+  setLastUpdated(data.updatedAt);
   isApplyingRemote = false;
 }
 
@@ -1299,7 +1303,10 @@ function loadRecipes(){
 
 function saveRecipes(arr){
   localStorage.setItem(LS.RECIPES, JSON.stringify(arr));
-  if (!isApplyingRemote) scheduleSync();
+  if (!isApplyingRemote){
+    markLocalUpdate();
+    scheduleSync();
+  }
 }
 
 function loadPlanState(){
@@ -1322,7 +1329,10 @@ function loadPlanState(){
 
 function savePlanState(state){
   localStorage.setItem(LS.PLAN, JSON.stringify(state));
-  if (!isApplyingRemote) scheduleSync();
+  if (!isApplyingRemote){
+    markLocalUpdate();
+    scheduleSync();
+  }
 }
 
 function loadLegacyPlan(){
@@ -1355,7 +1365,10 @@ function loadShoppingItems(){
 
 function saveShoppingItems(arr){
   localStorage.setItem(LS.SHOP_ITEMS, JSON.stringify(arr));
-  if (!isApplyingRemote) scheduleSync();
+  if (!isApplyingRemote){
+    markLocalUpdate();
+    scheduleSync();
+  }
 }
 
 // --- Helpers: dates ---
@@ -1432,6 +1445,21 @@ function normalizeText(value){
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+}
+
+function loadLastUpdated(){
+  const raw = localStorage.getItem(LS.LAST_UPDATED);
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function setLastUpdated(timestamp){
+  lastLocalUpdate = timestamp;
+  localStorage.setItem(LS.LAST_UPDATED, String(timestamp));
+}
+
+function markLocalUpdate(){
+  setLastUpdated(Date.now());
 }
 
 function getClientId(){
