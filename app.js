@@ -120,19 +120,6 @@ const SHOP_SUGGESTIONS = [
   { name: "Papel de cocina", category: "limpieza" }
 ];
 
-const MAGIC_LOOP_ENDPOINT = "https://magicloops.dev/api/loop/16ba12a4-c93d-405f-ab0b-d782a78448ae/run";
-const MAGIC_LOOP_DEFAULTS = {
-  count: 5,
-  mealType: "tupper",
-  congelable: true,
-  protein: "pollo",
-  base: "arroz",
-  maxTime: 30,
-  difficulty: "simple",
-  includeIngredients: ["pimiento rojo"],
-  excludeIngredients: ["lácteos"]
-};
-
 // --- DOM ---
 const tabs = Array.from(document.querySelectorAll(".tab"));
 const panels = {
@@ -196,7 +183,6 @@ let planState = loadPlanState();
 let shoppingItems = loadShoppingItems();
 let pickerContext = null; // { slotId, dayISO, mealType }
 let assignRecipeId = null;
-let suggestionRequestId = 0;
 
 // --- INIT ---
 initTabs();
@@ -427,31 +413,12 @@ tagFilters.forEach(cb => cb.addEventListener("change", renderSuggestedRecipes));
 function renderSuggestedRecipes(){
   const query = searchInput.value.trim().toLowerCase();
   const activeTags = tagFilters.filter(cb => cb.checked).map(cb => cb.value);
-  const requestId = ++suggestionRequestId;
-
-  resultsEl.innerHTML = `<div class="muted">Buscando recetas...</div>`;
-
-  fetchSuggestedRecipes(query, activeTags)
-    .then(apiRecipes => {
-      if (requestId !== suggestionRequestId) return;
-      const filtered = filterRecipes(apiRecipes, query, activeTags);
-      const fallback = filtered.length ? [] : filterRecipes(SUGGESTED_RECIPES, query, activeTags);
-      const finalRecipes = filtered.length ? filtered : fallback;
-      if (!finalRecipes.length){
-        resultsEl.innerHTML = `<div class="muted">No hay resultados con estos filtros.</div>`;
-        return;
-      }
-      renderSuggestedRecipeCards(finalRecipes);
-    })
-    .catch(() => {
-      if (requestId !== suggestionRequestId) return;
-      const fallback = filterRecipes(SUGGESTED_RECIPES, query, activeTags);
-      if (!fallback.length){
-        resultsEl.innerHTML = `<div class="muted">No se pudieron cargar recetas en este momento.</div>`;
-        return;
-      }
-      renderSuggestedRecipeCards(fallback);
-    });
+  const filtered = filterRecipes(SUGGESTED_RECIPES, query, activeTags);
+  if (!filtered.length){
+    resultsEl.innerHTML = `<div class="muted">No hay resultados con estos filtros.</div>`;
+    return;
+  }
+  renderSuggestedRecipeCards(filtered);
 }
 
 function renderSuggestedRecipeCards(list){
@@ -502,99 +469,6 @@ function filterRecipes(list, query, activeTags){
     const matchesTags = !activeTags.length || !hasTags || activeTags.every(tag => r.tags.includes(tag));
     return matchesQuery && matchesTags;
   });
-}
-
-function buildMagicLoopPayload(query, activeTags){
-  const payload = { ...MAGIC_LOOP_DEFAULTS };
-  if (activeTags.includes("tupper")) payload.mealType = "tupper";
-  if (activeTags.includes("congelable")) payload.congelable = true;
-  if (query){
-    payload.includeIngredients = [query];
-  }
-  return payload;
-}
-
-async function fetchSuggestedRecipes(query, activeTags){
-  const response = await fetch(MAGIC_LOOP_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(buildMagicLoopPayload(query, activeTags))
-  });
-
-  if (!response.ok){
-    throw new Error("Magic Loops request failed");
-  }
-
-  const data = await response.json();
-  return normalizeMagicLoopRecipes(data);
-}
-
-function normalizeMagicLoopRecipes(payload){
-  const list = extractRecipeArray(payload);
-  return list
-    .map(item => normalizeMagicLoopRecipe(item))
-    .filter(Boolean);
-}
-
-function extractRecipeArray(payload){
-  if (Array.isArray(payload)) return payload;
-  if (!payload || typeof payload !== "object") return [];
-  const candidates = [
-    payload.recipes,
-    payload.meals,
-    payload.results,
-    payload.items,
-    payload.data,
-    payload.output,
-    payload.output?.recipes,
-    payload.output?.meals
-  ];
-  for (const candidate of candidates){
-    if (Array.isArray(candidate)) return candidate;
-  }
-  const firstArray = Object.values(payload).find(Array.isArray);
-  return firstArray || [];
-}
-
-function normalizeMagicLoopRecipe(item){
-  if (!item || typeof item !== "object") return null;
-  const name = item.name || item.title || item.recipe || item.strMeal || "Receta sugerida";
-  if (!name) return null;
-  return {
-    name,
-    tags: normalizeTags(item),
-    source: item.source || item.origin || item.area || item.category || "Magic Loops",
-    url: item.url || item.sourceUrl || item.link || item.strSource || "",
-    ingredients: normalizeIngredients(item)
-  };
-}
-
-function normalizeTags(item){
-  const raw = item.tags || item.tag || item.strTags || "";
-  const list = Array.isArray(raw) ? raw : String(raw).split(",");
-  return list
-    .map(tag => String(tag).trim().toLowerCase())
-    .filter(Boolean);
-}
-
-function normalizeIngredients(item){
-  if (Array.isArray(item.ingredients)){
-    return normalizeIngredientList(item.ingredients);
-  }
-  if (Array.isArray(item.ingredientList)){
-    return normalizeIngredientList(item.ingredientList);
-  }
-  if (typeof item.ingredients === "string"){
-    return normalizeIngredientList(item.ingredients.split(/,|\n/));
-  }
-  const themealdbIngredients = Object.keys(item)
-    .filter(key => key.startsWith("strIngredient"))
-    .map(key => item[key])
-    .filter(Boolean);
-  if (themealdbIngredients.length){
-    return normalizeIngredientList(themealdbIngredients);
-  }
-  return [];
 }
 
 function normalizeIngredientList(list){
