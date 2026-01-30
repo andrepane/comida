@@ -1,4 +1,4 @@
-const CACHE_NAME = "meal-planner-v1";
+const CACHE_NAME = "tupperia-v2";
 const CORE_ASSETS = [
   ".",
   "index.html",
