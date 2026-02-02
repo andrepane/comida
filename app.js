@@ -440,6 +440,22 @@ function initFirebaseSync(){
   if (!firebase.apps.length){
     firebase.initializeApp(window.FIREBASE_CONFIG);
   }
+  if (!firebase.auth){
+    console.warn("Firebase Auth no está disponible. Revisa los scripts de Firebase.");
+    return;
+  }
+  const auth = firebase.auth();
+  auth.onAuthStateChanged((user) => {
+    if (!user) return;
+    setupFirestoreSync();
+  });
+  auth.signInAnonymously().catch((error) => {
+    console.warn("No se pudo iniciar sesión anónima.", error);
+  });
+}
+
+function setupFirestoreSync(){
+  if (firestore && syncDocRef) return;
   firestore = firebase.firestore();
   syncDocRef = firestore.collection("mealPlanner").doc(window.FIREBASE_SYNC_DOC || "default");
 
