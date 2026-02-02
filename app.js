@@ -47,6 +47,7 @@ let lastLocalUpdate = loadLastUpdated();
 const clientId = getClientId();
 let firestore = null;
 let syncDocRef = null;
+let serverTimestamp = null;
 
 // --- DOM ---
 const tabs = Array.from(document.querySelectorAll(".tab"));
@@ -444,6 +445,7 @@ function initFirebaseSync(){
     console.warn("Firebase Auth no está disponible. Revisa los scripts de Firebase.");
     return;
   }
+  serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
   const auth = firebase.auth();
   auth.onAuthStateChanged((user) => {
     if (!user) return;
@@ -461,18 +463,17 @@ function setupFirestoreSync(){
 
   syncDocRef.onSnapshot((snap) => {
     const data = snap.data();
-    if (!data?.updatedAt || data.updatedAt <= lastRemoteUpdate) return;
-    if (data.updatedAt <= lastLocalSync) return;
-    if (data.updatedAt <= lastLocalUpdate) return;
+    const remoteUpdatedAt = getRemoteTimestamp(data?.updatedAt);
+    if (!remoteUpdatedAt || remoteUpdatedAt <= lastRemoteUpdate) return;
     if (data.updatedBy === clientId) return;
-    lastRemoteUpdate = data.updatedAt;
-    applyRemoteState(data);
+    lastRemoteUpdate = remoteUpdatedAt;
+    applyRemoteState(data, remoteUpdatedAt);
   });
 
   scheduleSync();
 }
 
-function applyRemoteState(data){
+function applyRemoteState(data, remoteUpdatedAt){
   if (!data?.payload) return;
   isApplyingRemote = true;
   const payload = data.payload;
@@ -488,7 +489,9 @@ function applyRemoteState(data){
 
   renderWeek();
   renderShoppingList();
-  setLastUpdated(data.updatedAt);
+  if (remoteUpdatedAt){
+    setLastUpdated(remoteUpdatedAt);
+  }
   isApplyingRemote = false;
 }
 
@@ -504,12 +507,11 @@ function pushStateToRemote(){
     planState,
     shoppingItems
   };
-  const now = Date.now();
-  lastLocalSync = now;
+  lastLocalSync = Date.now();
   syncDocRef.set(
     {
       payload,
-      updatedAt: now,
+      updatedAt: serverTimestamp ? serverTimestamp() : Date.now(),
       updatedBy: clientId
     },
     { merge: true }
@@ -664,6 +666,13 @@ function loadLastUpdated(){
 function setLastUpdated(timestamp){
   lastLocalUpdate = timestamp;
   localStorage.setItem(LS.LAST_UPDATED, String(timestamp));
+}
+
+function getRemoteTimestamp(updatedAt){
+  if (!updatedAt) return 0;
+  if (typeof updatedAt === "number") return updatedAt;
+  if (typeof updatedAt.toMillis === "function") return updatedAt.toMillis();
+  return 0;
 }
 
 function markLocalUpdate(){
