@@ -457,6 +457,7 @@ function initFirebaseSync(){
   }
   if (!firebase.auth){
     console.warn("Firebase Auth no está disponible. Revisa los scripts de Firebase.");
+    setupFirestoreSync();
     return;
   }
   const auth = firebase.auth();
@@ -464,9 +465,11 @@ function initFirebaseSync(){
     if (!user) return;
     setupFirestoreSync();
   });
-  auth.signInAnonymously().catch((error) => {
-    console.warn("No se pudo iniciar sesión anónima.", error);
-  });
+  auth.signInAnonymously()
+    .catch((error) => {
+      console.warn("No se pudo iniciar sesión anónima.", error);
+      setupFirestoreSync();
+    });
 }
 
 function setupFirestoreSync(){
@@ -476,7 +479,7 @@ function setupFirestoreSync(){
 
   syncDocRef.onSnapshot((snap) => {
     const data = snap.data();
-    const remoteUpdatedAt = getRemoteTimestamp(data?.updatedAt);
+    const remoteUpdatedAt = getRemoteTimestamp(data?.updatedAt ?? data?.updatedAtClient);
     if (!hasRemoteSnapshot){
       hasRemoteSnapshot = true;
       if (!data?.payload && hasLocalData() && !hasScheduledInitialPush){
@@ -535,7 +538,8 @@ function pushStateToRemote(){
   syncDocRef
     .set({
       payload,
-      updatedAt: Date.now(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAtClient: Date.now(),
       updatedBy: clientId
     })
     .catch((error) => {
