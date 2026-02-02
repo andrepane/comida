@@ -7,8 +7,10 @@
 const LS = {
   PLAN: "mp_plan_v2",
   SHOP_ITEMS: "mp_shop_items_v2",
+  RECIPES: "mp_recipes_v2",
   CLIENT_ID: "mp_client_id_v2",
-  LAST_UPDATED: "mp_last_updated_v2"
+  LAST_UPDATED: "mp_last_updated_v2",
+  AUTH_MODE: "mp_auth_mode_v2"
 };
 
 const DAYS_ES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -49,6 +51,8 @@ let hasScheduledInitialPush = false;
 const clientId = getClientId();
 let firestore = null;
 let syncDocRef = null;
+let auth = null;
+let unsubscribeSync = null;
 
 // --- DOM ---
 const tabs = Array.from(document.querySelectorAll(".tab"));
@@ -56,6 +60,8 @@ const panels = {
   plan: document.getElementById("tab-plan"),
   shop: document.getElementById("tab-shop"),
 };
+const authStatusEl = document.getElementById("authStatus");
+const authBtn = document.getElementById("authBtn");
 
 const weekRangeEl = document.getElementById("weekRange");
 const weekGridEl = document.getElementById("weekGrid");
@@ -83,6 +89,7 @@ const slotSaveBtn = document.getElementById("slotSaveBtn");
 // --- STATE ---
 let planState = loadPlanState();
 let shoppingItems = loadShoppingItems();
+let recipes = loadRecipes();
 let pickerContext = null; // { slotId, dayISO, mealType }
 
 // --- INIT ---
@@ -446,22 +453,38 @@ function initFirebaseSync(){
     console.warn("Firebase Auth no está disponible. Revisa los scripts de Firebase.");
     return;
   }
-  const auth = firebase.auth();
+  auth = firebase.auth();
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => null);
+  if (authBtn){
+    authBtn.addEventListener("click", () => handleAuthButton());
+  }
   auth.onAuthStateChanged((user) => {
-    if (!user) return;
-    setupFirestoreSync();
+    updateAuthUI(user);
+    if (user){
+      setupFirestoreSync(user);
+      return;
+    }
+    teardownFirestoreSync();
+    ensureSignedIn();
   });
-  auth.signInAnonymously().catch((error) => {
-    console.warn("No se pudo iniciar sesión anónima.", error);
-  });
+  ensureSignedIn();
 }
 
-function setupFirestoreSync(){
-  if (firestore && syncDocRef) return;
+function setupFirestoreSync(user){
+  if (!user) return;
+  if (firestore && syncDocRef && syncDocRef.id === getSyncDocId(user)) return;
+  teardownFirestoreSync();
   firestore = firebase.firestore();
-  syncDocRef = firestore.collection("mealPlanner").doc(window.FIREBASE_SYNC_DOC || "default");
+  syncDocRef = firestore
+    .collection("users")
+    .doc(user.uid)
+    .collection("mealPlanner")
+    .doc(getSyncDocId(user));
+  hasRemoteSnapshot = false;
+  hasScheduledInitialPush = false;
+  lastRemoteUpdate = 0;
 
-  syncDocRef.onSnapshot((snap) => {
+  unsubscribeSync = syncDocRef.onSnapshot((snap) => {
     const data = snap.data();
     const remoteUpdatedAt = getRemoteTimestamp(data?.updatedAt);
     if (!hasRemoteSnapshot){
@@ -484,6 +507,15 @@ function setupFirestoreSync(){
   });
 }
 
+function teardownFirestoreSync(){
+  if (unsubscribeSync){
+    unsubscribeSync();
+    unsubscribeSync = null;
+  }
+  syncDocRef = null;
+  firestore = null;
+}
+
 function applyRemoteState(data, remoteUpdatedAt){
   if (!data?.payload) return;
   isApplyingRemote = true;
@@ -496,6 +528,10 @@ function applyRemoteState(data, remoteUpdatedAt){
   if (Array.isArray(payload.shoppingItems)){
     shoppingItems = payload.shoppingItems;
     saveShoppingItems(shoppingItems);
+  }
+  if (Array.isArray(payload.recipes)){
+    recipes = payload.recipes;
+    saveRecipes(recipes);
   }
 
   renderWeek();
@@ -516,7 +552,8 @@ function pushStateToRemote(){
   if (!syncDocRef) return;
   const payload = {
     planState,
-    shoppingItems
+    shoppingItems,
+    recipes
   };
   lastLocalSync = Date.now();
   syncDocRef
@@ -587,6 +624,24 @@ function loadShoppingItems(){
 
 function saveShoppingItems(arr){
   localStorage.setItem(LS.SHOP_ITEMS, JSON.stringify(arr));
+  if (!isApplyingRemote){
+    markLocalUpdate();
+    scheduleSync();
+  }
+}
+
+function loadRecipes(){
+  try{
+    const raw = localStorage.getItem(LS.RECIPES);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  }catch{
+    return [];
+  }
+}
+
+function saveRecipes(arr){
+  localStorage.setItem(LS.RECIPES, JSON.stringify(arr));
   if (!isApplyingRemote){
     markLocalUpdate();
     scheduleSync();
@@ -707,5 +762,66 @@ function registerServiceWorker(){
 }
 
 function hasLocalData(){
-  return Object.keys(planState.entries || {}).length > 0 || shoppingItems.length > 0;
+  return Object.keys(planState.entries || {}).length > 0 || shoppingItems.length > 0 || recipes.length > 0;
+}
+
+function ensureSignedIn(){
+  if (!auth || auth.currentUser) return;
+  const mode = localStorage.getItem(LS.AUTH_MODE);
+  if (mode === "google"){
+    signInWithGoogle();
+    return;
+  }
+  signInAnonymously();
+}
+
+function handleAuthButton(){
+  if (!auth) return;
+  const user = auth.currentUser;
+  if (user && !user.isAnonymous){
+    auth.signOut().catch(() => null);
+    return;
+  }
+  signInWithGoogle();
+}
+
+function signInWithGoogle(){
+  if (!auth || !firebase.auth?.GoogleAuthProvider){
+    signInAnonymously();
+    return;
+  }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth
+    .signInWithPopup(provider)
+    .then(() => {
+      localStorage.setItem(LS.AUTH_MODE, "google");
+    })
+    .catch((error) => {
+      console.warn("No se pudo iniciar sesión con Google.", error);
+      signInAnonymously();
+    });
+}
+
+function signInAnonymously(){
+  if (!auth) return;
+  auth.signInAnonymously().catch((error) => {
+    console.warn("No se pudo iniciar sesión anónima.", error);
+  });
+}
+
+function updateAuthUI(user){
+  if (!authStatusEl || !authBtn) return;
+  if (user){
+    const label = user.isAnonymous ? "Invitado" : user.email || "Cuenta Google";
+    authStatusEl.textContent = `Conectado: ${label}`;
+    authBtn.textContent = user.isAnonymous ? "Conectar con Google" : "Cerrar sesión";
+    return;
+  }
+  authStatusEl.textContent = "Sin conexión";
+  authBtn.textContent = "Conectar con Google";
+}
+
+function getSyncDocId(user){
+  const base = window.FIREBASE_SYNC_DOC || "default";
+  return `${user.uid}_${base}`;
 }
