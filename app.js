@@ -44,10 +44,11 @@ let syncTimer = null;
 let lastRemoteUpdate = 0;
 let lastLocalSync = 0;
 let lastLocalUpdate = loadLastUpdated();
+let hasRemoteSnapshot = false;
+let hasScheduledInitialPush = false;
 const clientId = getClientId();
 let firestore = null;
 let syncDocRef = null;
-let serverTimestamp = null;
 
 // --- DOM ---
 const tabs = Array.from(document.querySelectorAll(".tab"));
@@ -445,7 +446,6 @@ function initFirebaseSync(){
     console.warn("Firebase Auth no está disponible. Revisa los scripts de Firebase.");
     return;
   }
-  serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
   const auth = firebase.auth();
   auth.onAuthStateChanged((user) => {
     if (!user) return;
@@ -464,13 +464,24 @@ function setupFirestoreSync(){
   syncDocRef.onSnapshot((snap) => {
     const data = snap.data();
     const remoteUpdatedAt = getRemoteTimestamp(data?.updatedAt);
-    if (!remoteUpdatedAt || remoteUpdatedAt <= lastRemoteUpdate) return;
-    if (data.updatedBy === clientId) return;
-    lastRemoteUpdate = remoteUpdatedAt;
-    applyRemoteState(data, remoteUpdatedAt);
+    if (!hasRemoteSnapshot){
+      hasRemoteSnapshot = true;
+      if (!data?.payload && hasLocalData() && !hasScheduledInitialPush){
+        hasScheduledInitialPush = true;
+        scheduleSync();
+      }
+    }
+    if (!data?.payload) return;
+    if (data.updatedBy === clientId){
+      if (remoteUpdatedAt && remoteUpdatedAt > lastRemoteUpdate){
+        lastRemoteUpdate = remoteUpdatedAt;
+      }
+      return;
+    }
+    if (remoteUpdatedAt && remoteUpdatedAt <= lastRemoteUpdate) return;
+    lastRemoteUpdate = remoteUpdatedAt || lastRemoteUpdate;
+    applyRemoteState(data, remoteUpdatedAt || Date.now());
   });
-
-  scheduleSync();
 }
 
 function applyRemoteState(data, remoteUpdatedAt){
@@ -511,7 +522,7 @@ function pushStateToRemote(){
   syncDocRef.set(
     {
       payload,
-      updatedAt: serverTimestamp ? serverTimestamp() : Date.now(),
+      updatedAt: Date.now(),
       updatedBy: clientId
     },
     { merge: true }
@@ -692,4 +703,8 @@ function registerServiceWorker(){
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js");
   });
+}
+
+function hasLocalData(){
+  return Object.keys(planState.entries || {}).length > 0 || shoppingItems.length > 0;
 }
