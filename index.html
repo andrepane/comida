@@ -3,138 +3,95 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Tuppería</title>
-  <meta name="description" content="Planificador de comidas con calendario y lista de la compra." />
+  <title>Calendario Compartido</title>
+  <meta name="description" content="Calendario con notas sincronizadas en tiempo real entre dispositivos." />
   <meta name="theme-color" content="#3b82f6" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='36' fill='%233b82f6'/%3E%3Ctext x='50%25' y='54%25' font-size='90' text-anchor='middle' fill='white' font-family='Arial, sans-serif'%3E%F0%9F%8D%B2%3C/text%3E%3C/svg%3E" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='36' fill='%233b82f6'/%3E%3Ctext x='50%25' y='54%25' font-size='90' text-anchor='middle' fill='white' font-family='Arial, sans-serif'%3E%F0%9F%97%93%EF%B8%8F%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <h1>Tuppería</h1>
+      <div class="brand-icon">🗓️</div>
+      <div>
+        <h1>Calendario Compartido</h1>
+        <p>Notas sincronizadas al instante entre todos tus dispositivos.</p>
+      </div>
     </div>
-
-    <nav class="tabs" aria-label="Secciones">
-      <button class="tab active" data-tab="plan">Calendario</button>
-      <button class="tab" data-tab="shop">Compra</button>
-    </nav>
+    <div class="status" id="syncStatus">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span class="status-text">Preparando sincronización…</span>
+    </div>
   </header>
 
-  <main class="container">
-    <!-- PLAN -->
-    <section id="tab-plan" class="tabpanel active" aria-labelledby="Calendario">
-      <div class="plan-head">
-        <div class="week-controls">
-          <button id="prevWeekBtn" class="btn">← Semana</button>
-          <div class="week-title">
-            <div class="label">Calendario (2 semanas)</div>
-            <div id="weekRange" class="value">—</div>
-          </div>
-          <button id="nextWeekBtn" class="btn">Semana →</button>
+  <main class="layout">
+    <section class="calendar">
+      <div class="calendar-head">
+        <button class="btn" id="prevMonth">← Mes anterior</button>
+        <div class="month">
+          <div class="month-label" id="monthLabel">—</div>
+          <div class="month-sub" id="monthRange">—</div>
         </div>
-
-        <div class="plan-actions">
-          <button id="clearPlanBtn" class="btn danger">Vaciar estas 2 semanas</button>
-          <button id="copyPrevWeekBtn" class="btn">Copiar 2 semanas anteriores</button>
-        </div>
+        <button class="btn" id="nextMonth">Mes siguiente →</button>
       </div>
 
-      <div class="grid" id="weekGrid" aria-label="Calendario de dos semanas">
-        <!-- Se rellena por JS -->
+      <div class="calendar-weekdays" aria-hidden="true">
+        <span>Lun</span>
+        <span>Mar</span>
+        <span>Mié</span>
+        <span>Jue</span>
+        <span>Vie</span>
+        <span>Sáb</span>
+        <span>Dom</span>
       </div>
 
-      <div class="hint">
-        Tip: haz clic en un hueco (almuerzo/cena) para escribir un plato y, si quieres, sus ingredientes.
-      </div>
+      <div class="calendar-grid" id="calendarGrid" aria-label="Calendario con notas"></div>
     </section>
 
-    <!-- COMPRA -->
-    <section id="tab-shop" class="tabpanel" aria-labelledby="Compra">
-      <div class="card">
-        <div class="card-title">
-          <h2>Lista de la compra</h2>
-          <p class="muted">Añade ingredientes manualmente o genera desde el plan semanal.</p>
+    <aside class="note-panel">
+      <div class="note-head">
+        <div>
+          <div class="note-kicker">Nota del día</div>
+          <h2 id="selectedDateLabel">—</h2>
         </div>
-
-        <div class="shop-actions">
-          <button id="addFromPlanBtn" class="btn primary">Añadir ingredientes del plan</button>
-          <button id="clearShopChecksBtn" class="btn">Desmarcar todo</button>
-        </div>
-
-        <div class="shop-form">
-          <input type="text" id="shopItemName" class="input" placeholder="Ingrediente" />
-          <input type="text" id="shopItemQty" class="input" placeholder="Cantidad (opcional)" />
-          <select id="shopItemCategory" class="input">
-            <option value="verdura">Verdura</option>
-            <option value="fruta">Fruta</option>
-            <option value="carne">Carne</option>
-            <option value="pescado">Pescado</option>
-            <option value="lacteos">Lácteos</option>
-            <option value="despensa">Despensa</option>
-            <option value="congelados">Congelados</option>
-            <option value="bebidas">Bebidas</option>
-            <option value="limpieza">Limpieza</option>
-            <option value="otros">Otros</option>
-          </select>
-          <button id="addShopItemBtn" class="btn">Añadir</button>
-        </div>
-
-        <div class="suggestions">
-          <div class="suggestions-title">Sugerencias rápidas</div>
-          <div id="suggestionChips" class="suggestion-chips"></div>
-        </div>
-
-        <div id="shoppingList" class="shopping" aria-label="Lista de la compra"></div>
+        <button class="btn ghost" id="todayBtn">Ir a hoy</button>
       </div>
-    </section>
+
+      <label class="note-label" for="noteInput">Escribe o edita tu nota</label>
+      <textarea id="noteInput" class="note-input" placeholder="Añade una nota para este día…"></textarea>
+
+      <div class="note-actions">
+        <button class="btn primary" id="saveNote">Guardar</button>
+        <button class="btn danger" id="deleteNote">Borrar nota</button>
+      </div>
+
+      <div class="sync-card">
+        <h3>Sincronización</h3>
+        <p>Para que se sincronice entre dispositivos necesitas un proyecto Firebase. Añade tu configuración y un ID compartido:</p>
+        <ol>
+          <li>Configura un proyecto en Firebase (Firestore).</li>
+          <li>Asigna <code>window.FIREBASE_CONFIG</code> y <code>window.CALENDAR_ID</code> antes de cargar <code>app.js</code>.</li>
+          <li>Abre la misma URL en todos los dispositivos.</li>
+        </ol>
+        <div class="code-block">
+          <pre>&lt;script&gt;
+window.FIREBASE_CONFIG = { /* tu config */ };
+window.CALENDAR_ID = "mi-calendario";
+&lt;/script&gt;</pre>
+        </div>
+      </div>
+    </aside>
   </main>
 
-  <!-- MODAL: selector de receta para un slot -->
-  <dialog id="pickerDialog" class="dialog">
-    <form method="dialog" class="dialog-inner">
-      <div class="dialog-head">
-        <div>
-          <div class="dialog-kicker" id="pickerKicker">—</div>
-          <h3 id="pickerTitle">Editar hueco</h3>
-        </div>
-        <button class="icon-btn" value="cancel" aria-label="Cerrar">✕</button>
-      </div>
-
-      <div class="dialog-block">
-        <h4>Escribir plato</h4>
-        <input id="slotTextInput" class="dialog-search" type="text" placeholder="Ej: Ensalada de quinoa" />
-        <input id="slotIngredientsInput" class="dialog-search" type="text" placeholder="Ingredientes (separados por coma)" />
-        <button id="slotSaveBtn" class="btn primary" type="button">Guardar en el hueco</button>
-      </div>
-
-      <div class="dialog-foot">
-        <button id="removeFromSlotBtn" class="btn danger" value="remove">Quitar del hueco</button>
-        <button class="btn" value="cancel">Cancelar</button>
-      </div>
-    </form>
-  </dialog>
-
+  <script>
+    window.CALENDAR_ID = window.CALENDAR_ID || "default";
+  </script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <script>
-    window.FIREBASE_CONFIG = {
-      apiKey: "AIzaSyCvxpyyTZvVYhXX8MrtJ1PORMMKMJHD18M",
-      authDomain: "comida-fbfbd.firebaseapp.com",
-      projectId: "comida-fbfbd",
-      storageBucket: "comida-fbfbd.firebasestorage.app",
-      messagingSenderId: "1074209619328",
-      appId: "1:1074209619328:web:02b030bdec0bc599579565"
-    };
-    window.FIREBASE_SYNC_DOC = window.FIREBASE_SYNC_DOC || "default";
-    if (window.firebase && !firebase.apps.length) {
-      firebase.initializeApp(window.FIREBASE_CONFIG);
-    }
-  </script>
   <script src="app.js"></script>
 </body>
 </html>

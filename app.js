@@ -1,741 +1,344 @@
-/***********************
- * Tuppería (v2)
- * - Calendario de 2 semanas (almuerzo/cena)
- * - Lista de la compra con categorías y sugerencias
- ************************/
+const calendarGrid = document.getElementById("calendarGrid");
+const monthLabel = document.getElementById("monthLabel");
+const monthRange = document.getElementById("monthRange");
+const prevMonthBtn = document.getElementById("prevMonth");
+const nextMonthBtn = document.getElementById("nextMonth");
+const todayBtn = document.getElementById("todayBtn");
+const noteInput = document.getElementById("noteInput");
+const saveNoteBtn = document.getElementById("saveNote");
+const deleteNoteBtn = document.getElementById("deleteNote");
+const selectedDateLabel = document.getElementById("selectedDateLabel");
+const syncStatus = document.getElementById("syncStatus");
+const syncStatusDot = syncStatus.querySelector(".status-dot");
+const syncStatusText = syncStatus.querySelector(".status-text");
 
-const LS = {
-  PLAN: "mp_plan_v2",
-  SHOP_ITEMS: "mp_shop_items_v2",
-  CLIENT_ID: "mp_client_id_v2",
-  LAST_UPDATED: "mp_last_updated_v2"
+const LOCAL_STORAGE_KEY = "shared_calendar_notes_v1";
+const CALENDAR_ID = window.CALENDAR_ID || "default";
+
+let state = {
+  currentMonth: new Date(),
+  selectedDate: new Date(),
+  notes: new Map(),
+  isSyncReady: false,
+  isFirebaseEnabled: false,
+  unsubscribe: null
 };
 
-const DAYS_ES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCvxpyyTZvVYhXX8MrtJ1PORMMKMJHD18M",
-  authDomain: "comida-fbfbd.firebaseapp.com",
-  projectId: "comida-fbfbd",
-  storageBucket: "comida-fbfbd.firebasestorage.app",
-  messagingSenderId: "1074209619328",
-  appId: "1:1074209619328:web:02b030bdec0bc599579565"
-};
-
-const CATEGORY_LABELS = {
-  verdura: "Verdura",
-  fruta: "Fruta",
-  carne: "Carne",
-  pescado: "Pescado",
-  lacteos: "Lácteos",
-  despensa: "Despensa",
-  congelados: "Congelados",
-  bebidas: "Bebidas",
-  limpieza: "Limpieza",
-  otros: "Otros"
-};
-
-const SHOP_SUGGESTIONS = [
-  { name: "Leche", category: "lacteos" },
-  { name: "Huevos", category: "despensa" },
-  { name: "Pollo", category: "carne" },
-  { name: "Salmón", category: "pescado" },
-  { name: "Plátanos", category: "fruta" },
-  { name: "Tomates", category: "verdura" },
-  { name: "Espinacas", category: "verdura" },
-  { name: "Arroz", category: "despensa" },
-  { name: "Café", category: "bebidas" },
-  { name: "Papel de cocina", category: "limpieza" }
-];
-
-let isApplyingRemote = false;
-let syncTimer = null;
-let lastRemoteUpdate = 0;
-let lastLocalSync = 0;
-let lastLocalUpdate = loadLastUpdated();
-let hasRemoteSnapshot = false;
-let hasScheduledInitialPush = false;
-const clientId = getClientId();
 let firestore = null;
-let syncDocRef = null;
-let syncUnsubscribe = null;
-let firebaseAuth = null;
 
-// --- DOM ---
-const tabs = Array.from(document.querySelectorAll(".tab"));
-const panels = {
-  plan: document.getElementById("tab-plan"),
-  shop: document.getElementById("tab-shop"),
-};
+init();
 
-const weekRangeEl = document.getElementById("weekRange");
-const weekGridEl = document.getElementById("weekGrid");
-const prevWeekBtn = document.getElementById("prevWeekBtn");
-const nextWeekBtn = document.getElementById("nextWeekBtn");
-const clearPlanBtn = document.getElementById("clearPlanBtn");
-const copyPrevWeekBtn = document.getElementById("copyPrevWeekBtn");
-
-const shoppingListEl = document.getElementById("shoppingList");
-const addFromPlanBtn = document.getElementById("addFromPlanBtn");
-const clearShopChecksBtn = document.getElementById("clearShopChecksBtn");
-const shopItemName = document.getElementById("shopItemName");
-const shopItemQty = document.getElementById("shopItemQty");
-const shopItemCategory = document.getElementById("shopItemCategory");
-const addShopItemBtn = document.getElementById("addShopItemBtn");
-const suggestionChips = document.getElementById("suggestionChips");
-
-const pickerDialog = document.getElementById("pickerDialog");
-const pickerKicker = document.getElementById("pickerKicker");
-const removeFromSlotBtn = document.getElementById("removeFromSlotBtn");
-const slotTextInput = document.getElementById("slotTextInput");
-const slotIngredientsInput = document.getElementById("slotIngredientsInput");
-const slotSaveBtn = document.getElementById("slotSaveBtn");
-
-// --- STATE ---
-let planState = loadPlanState();
-let shoppingItems = loadShoppingItems();
-let pickerContext = null; // { slotId, dayISO, mealType }
-
-// --- INIT ---
-initTabs();
-ensurePlanWeekStart();
-initFirebaseSync();
-registerServiceWorker();
-renderWeek();
-renderShoppingList();
-renderSuggestionChips();
-
-// --- TABS ---
-function initTabs(){
-  tabs.forEach(btn => {
-    btn.addEventListener("click", () => {
-      tabs.forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      const key = btn.dataset.tab;
-      Object.values(panels).forEach(p => p.classList.remove("active"));
-      panels[key].classList.add("active");
-    });
-  });
-}
-
-// --- WEEK / PLAN ---
-prevWeekBtn.addEventListener("click", () => shiftWeek(-7));
-nextWeekBtn.addEventListener("click", () => shiftWeek(7));
-
-clearPlanBtn.addEventListener("click", () => {
-  if (!confirm("¿Vaciar estas 2 semanas?")) return;
-  const range = getTwoWeekRange(planState.currentWeekStart);
-  range.forEach(dayISO => delete planState.entries[dayISO]);
-  savePlanState(planState);
-  renderWeek();
-});
-
-copyPrevWeekBtn.addEventListener("click", () => {
-  const start = planState.currentWeekStart;
-  const currentRange = getTwoWeekRange(start);
-  currentRange.forEach((dayISO, index) => {
-    const prevDay = addDaysISO(start, index - 14);
-    const prevEntry = planState.entries[prevDay];
-    if (prevEntry) {
-      planState.entries[dayISO] = {
-        lunch: cloneSlot(prevEntry.lunch),
-        dinner: cloneSlot(prevEntry.dinner)
-      };
+function init() {
+  const storedNotes = loadLocalNotes();
+  Object.entries(storedNotes).forEach(([date, text]) => {
+    if (text) {
+      state.notes.set(date, text);
     }
   });
-  savePlanState(planState);
-  renderWeek();
-});
 
-function ensurePlanWeekStart(){
-  if (!planState.currentWeekStart){
-    planState.currentWeekStart = mondayOfISO(todayISO());
-    savePlanState(planState);
-  }
+  initFirebase();
+  attachEvents();
+  render();
+  updateSelectedDate(state.selectedDate);
+  registerServiceWorker();
 }
 
-function shiftWeek(deltaDays){
-  planState.currentWeekStart = addDaysISO(planState.currentWeekStart, deltaDays);
-  savePlanState(planState);
-  renderWeek();
-}
-
-function renderWeek(){
-  const start = planState.currentWeekStart;
-  const end = addDaysISO(start, 13);
-  weekRangeEl.textContent = `${formatDateShort(start)} → ${formatDateShort(end)}`;
-
-  weekGridEl.innerHTML = "";
-  const range = getTwoWeekRange(start);
-  range.forEach((dayISO, index) => {
-    const day = document.createElement("div");
-    day.className = "day" + (index === 7 ? " week-divider" : "");
-
-    const head = document.createElement("div");
-    head.className = "day-head";
-    head.innerHTML = `
-      <div class="day-name">${DAYS_ES[index % 7]}</div>
-      <div class="day-date">${formatDayMonth(dayISO)}</div>
-    `;
-    day.appendChild(head);
-
-    day.appendChild(renderSlot(dayISO, "lunch", "Almuerzo"));
-    day.appendChild(renderSlot(dayISO, "dinner", "Cena"));
-
-    weekGridEl.appendChild(day);
+function attachEvents() {
+  prevMonthBtn.addEventListener("click", () => shiftMonth(-1));
+  nextMonthBtn.addEventListener("click", () => shiftMonth(1));
+  todayBtn.addEventListener("click", () => {
+    state.currentMonth = new Date();
+    updateSelectedDate(new Date());
+    render();
   });
+
+  saveNoteBtn.addEventListener("click", () => saveNote());
+  deleteNoteBtn.addEventListener("click", () => deleteNote());
+
+  noteInput.addEventListener("input", debounce(() => {
+    autoSaveNote();
+  }, 500));
+
+  window.addEventListener("online", () => updateSyncStatus());
+  window.addEventListener("offline", () => updateSyncStatus());
 }
 
-function renderSlot(dayISO, mealType, label){
-  const slotData = getSlot(dayISO, mealType);
-  const info = resolveSlotInfo(slotData);
-
-  const el = document.createElement("div");
-  el.className = "slot" + (info.isEmpty ? " empty" : "");
-  el.dataset.slotId = `${dayISO}_${mealType}`;
-
-  el.innerHTML = `
-    <div class="slot-label">${label}</div>
-    <div class="slot-value">${info.title}</div>
-    ${info.meta ? `<div class="slot-meta">${info.meta}</div>` : ""}
-  `;
-
-  el.addEventListener("click", () => openPicker({ slotId: `${dayISO}_${mealType}`, dayISO, mealType }));
-  return el;
-}
-
-function resolveSlotInfo(slotData){
-  if (!slotData || !slotData.type){
-    return { title: "— vacío —", isEmpty: true, meta: null };
-  }
-
-  const ingredientsCount = slotData.ingredients?.length || 0;
-  const meta = ingredientsCount ? `${ingredientsCount} ingredientes` : null;
-  return { title: escapeHtml(slotData.value || "(sin título)"), isEmpty: false, meta };
-}
-
-function openPicker(ctx){
-  pickerContext = ctx;
-  const existingSlot = getSlot(ctx.dayISO, ctx.mealType);
-  pickerKicker.textContent = `${formatDateLong(ctx.dayISO)} · ${ctx.mealType === "lunch" ? "Almuerzo" : "Cena"}`;
-  slotTextInput.value = existingSlot?.type === "text" ? existingSlot.value : "";
-  slotIngredientsInput.value = existingSlot?.ingredients?.map(ing => ing.name).join(", ") || "";
-  pickerDialog.showModal();
-}
-
-slotSaveBtn.addEventListener("click", () => {
-  if (!pickerContext) return;
-  const title = slotTextInput.value.trim();
-  if (!title){
-    alert("Escribe el nombre del plato para guardar.");
-    return;
-  }
-  setSlot(pickerContext.dayISO, pickerContext.mealType, {
-    type: "text",
-    value: title,
-    ingredients: parseIngredients(slotIngredientsInput.value)
-  });
-  savePlanState(planState);
-  renderWeek();
-  pickerDialog.close();
-});
-
-removeFromSlotBtn.addEventListener("click", () => {
-  if (!pickerContext) return;
-  clearSlot(pickerContext.dayISO, pickerContext.mealType);
-  savePlanState(planState);
-  renderWeek();
-});
-
-function parseIngredients(raw){
-  return raw
-    .split(/,|\n/)
-    .map(item => item.trim())
-    .filter(Boolean)
-    .map(name => ({ name }));
-}
-
-// --- SHOPPING LIST ---
-addShopItemBtn.addEventListener("click", () => {
-  const name = shopItemName.value.trim();
-  if (!name){
-    alert("Escribe un ingrediente.");
-    return;
-  }
-  const newItem = {
-    id: cryptoId(),
-    name,
-    qty: shopItemQty.value.trim(),
-    category: shopItemCategory.value,
-    checked: false,
-    addedAt: Date.now()
-  };
-  shoppingItems.unshift(newItem);
-  saveShoppingItems(shoppingItems);
-  shopItemName.value = "";
-  shopItemQty.value = "";
-  renderShoppingList();
-});
-
-addFromPlanBtn.addEventListener("click", () => {
-  const added = addIngredientsFromPlan();
-  if (!added){
-    alert("No hay ingredientes que añadir desde el plan actual.");
-  }
-  renderShoppingList();
-});
-
-clearShopChecksBtn.addEventListener("click", () => {
-  shoppingItems = shoppingItems.map(item => ({ ...item, checked: false }));
-  saveShoppingItems(shoppingItems);
-  renderShoppingList();
-});
-
-function renderSuggestionChips(){
-  suggestionChips.innerHTML = "";
-  SHOP_SUGGESTIONS.forEach(item => {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "suggestion-chip";
-    chip.textContent = `${item.name} · ${CATEGORY_LABELS[item.category]}`;
-    chip.addEventListener("click", () => {
-      shoppingItems.unshift({
-        id: cryptoId(),
-        name: item.name,
-        qty: "",
-        category: item.category,
-        checked: false,
-        addedAt: Date.now()
-      });
-      saveShoppingItems(shoppingItems);
-      renderShoppingList();
-    });
-    suggestionChips.appendChild(chip);
-  });
-}
-
-function renderShoppingList(){
-  shoppingListEl.innerHTML = "";
-  if (!shoppingItems.length){
-    shoppingListEl.innerHTML = `<div class="muted">Aún no tienes ingredientes. Añade algunos o genera desde el plan.</div>`;
+function initFirebase() {
+  if (!window.firebase || !window.FIREBASE_CONFIG) {
+    updateSyncStatus("Sin Firebase: usando almacenamiento local.");
     return;
   }
 
-  const recentItems = [...shoppingItems]
-    .sort((a,b) => b.addedAt - a.addedAt)
-    .slice(0, 5);
-
-  shoppingListEl.appendChild(renderShopSection("Añadido recientemente", recentItems));
-
-  const grouped = groupByCategory(shoppingItems);
-  Object.keys(CATEGORY_LABELS).forEach(category => {
-    if (!grouped[category]?.length) return;
-    shoppingListEl.appendChild(renderShopSection(CATEGORY_LABELS[category], grouped[category]));
-  });
-}
-
-function renderShopSection(title, items){
-  const section = document.createElement("div");
-  section.className = "shop-section";
-  section.innerHTML = `<h3>${title}</h3>`;
-
-  items.forEach(item => {
-    const row = document.createElement("div");
-    row.className = "shop-item";
-    row.innerHTML = `
-      <label>
-        <input type="checkbox" ${item.checked ? "checked" : ""} />
-        <div>
-          <div class="name">${escapeHtml(item.name)}</div>
-          <div class="measure">${escapeHtml(item.qty || "")}</div>
-        </div>
-      </label>
-      <button class="btn danger" type="button">Quitar</button>
-    `;
-
-    row.querySelector("input").addEventListener("change", (e) => {
-      item.checked = e.target.checked;
-      saveShoppingItems(shoppingItems);
-    });
-
-    row.querySelector("button").addEventListener("click", () => {
-      shoppingItems = shoppingItems.filter(x => x.id !== item.id);
-      saveShoppingItems(shoppingItems);
-      renderShoppingList();
-    });
-
-    section.appendChild(row);
-  });
-
-  return section;
-}
-
-function addIngredientsFromPlan(){
-  const range = getTwoWeekRange(planState.currentWeekStart);
-  let added = false;
-
-  range.forEach(dayISO => {
-    const entry = planState.entries[dayISO];
-    if (!entry) return;
-    [entry.lunch, entry.dinner].forEach(slot => {
-      if (!slot || slot.type !== "text" || !slot.ingredients?.length) return;
-      slot.ingredients.forEach(ing => {
-        const normalized = normalizeName(ing.name);
-        const exists = shoppingItems.find(item => normalizeName(item.name) === normalized);
-        if (exists) return;
-        shoppingItems.unshift({
-          id: cryptoId(),
-          name: ing.name,
-          qty: "",
-          category: guessCategory(ing.name),
-          checked: false,
-          addedAt: Date.now()
-        });
-        added = true;
-      });
-    });
-  });
-
-  saveShoppingItems(shoppingItems);
-  return added;
-}
-
-function groupByCategory(items){
-  return items.reduce((acc, item) => {
-    const key = item.category || "otros";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {});
-}
-
-function guessCategory(name){
-  const n = normalizeName(name);
-  if (/pollo|ternera|cerdo|pavo|carne/.test(n)) return "carne";
-  if (/salmon|salmón|atun|atún|pescado|merluza/.test(n)) return "pescado";
-  if (/manzana|platano|plátano|pera|fresa|fruta/.test(n)) return "fruta";
-  if (/lechuga|tomate|zanahoria|cebolla|pimiento|brocoli|brócoli|verdura/.test(n)) return "verdura";
-  if (/leche|queso|yogur|mantequilla/.test(n)) return "lacteos";
-  if (/agua|refresco|zumo|cafe|café|vino/.test(n)) return "bebidas";
-  return "despensa";
-}
-
-// --- PLAN HELPERS ---
-function getSlot(dayISO, mealType){
-  const entry = planState.entries[dayISO];
-  return entry ? entry[mealType] : null;
-}
-
-function setSlot(dayISO, mealType, slotData){
-  if (!planState.entries[dayISO]){
-    planState.entries[dayISO] = { lunch: null, dinner: null };
-  }
-  planState.entries[dayISO][mealType] = slotData;
-}
-
-function clearSlot(dayISO, mealType){
-  if (!planState.entries[dayISO]) return;
-  planState.entries[dayISO][mealType] = null;
-}
-
-function cloneSlot(slot){
-  if (!slot) return null;
-  return { ...slot };
-}
-
-function getTwoWeekRange(startISO){
-  return Array.from({ length: 14 }, (_, i) => addDaysISO(startISO, i));
-}
-
-// --- Sync (Firebase Firestore) ---
-function initFirebaseSync(){
-  if (!window.FIREBASE_CONFIG){
-    window.FIREBASE_CONFIG = DEFAULT_FIREBASE_CONFIG;
-  }
-  window.FIREBASE_SYNC_DOC = window.FIREBASE_SYNC_DOC || "default";
-  if (!window.firebase) return;
-  if (!firebase.apps.length){
+  if (!firebase.apps.length) {
     firebase.initializeApp(window.FIREBASE_CONFIG);
   }
-  if (!firebase.auth){
-    console.warn("Firebase Auth no está disponible. Revisa los scripts de Firebase.");
-    setupFirestoreSync();
+
+  firebase.auth().signInAnonymously()
+    .then(() => {
+      firestore = firebase.firestore();
+      state.isFirebaseEnabled = true;
+      updateSyncStatus("Conectando a Firebase…");
+      subscribeToVisibleRange();
+    })
+    .catch(() => {
+      updateSyncStatus("No se pudo conectar con Firebase.");
+    });
+}
+
+function subscribeToVisibleRange() {
+  if (!firestore) return;
+  if (state.unsubscribe) {
+    state.unsubscribe();
+    state.unsubscribe = null;
+  }
+
+  const { startISO, endISO } = getGridRange(state.currentMonth);
+  const notesRef = firestore
+    .collection("calendars")
+    .doc(CALENDAR_ID)
+    .collection("notes");
+
+  state.unsubscribe = notesRef
+    .where("date", ">=", startISO)
+    .where("date", "<=", endISO)
+    .orderBy("date")
+    .onSnapshot((snapshot) => {
+      const incoming = new Map();
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data?.date && data?.text) {
+          incoming.set(data.date, data.text);
+        }
+      });
+      state.notes = mergeLocalAndRemote(incoming);
+      updateSyncStatus("Sincronizado en tiempo real.");
+      render();
+    }, () => {
+      updateSyncStatus("Error al escuchar cambios en Firebase.");
+    });
+}
+
+function mergeLocalAndRemote(remoteNotes) {
+  const local = loadLocalNotes();
+  Object.entries(local).forEach(([date, text]) => {
+    if (!remoteNotes.has(date) && text) {
+      remoteNotes.set(date, text);
+    }
+  });
+  return remoteNotes;
+}
+
+function render() {
+  renderHeader();
+  renderGrid();
+}
+
+function renderHeader() {
+  const formatter = new Intl.DateTimeFormat("es-ES", {
+    month: "long",
+    year: "numeric"
+  });
+  const monthName = formatter.format(state.currentMonth);
+  monthLabel.textContent = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+
+  const start = startOfMonth(state.currentMonth);
+  const end = endOfMonth(state.currentMonth);
+  monthRange.textContent = `${formatDateShort(start)} - ${formatDateShort(end)}`;
+}
+
+function renderGrid() {
+  calendarGrid.innerHTML = "";
+  const days = getCalendarDays(state.currentMonth);
+  days.forEach((date) => {
+    const iso = toISO(date);
+    const isOutside = date.getMonth() !== state.currentMonth.getMonth();
+    const isToday = isSameDay(date, new Date());
+    const isSelected = isSameDay(date, state.selectedDate);
+
+    const dayEl = document.createElement("button");
+    dayEl.type = "button";
+    dayEl.className = "day";
+    if (isOutside) dayEl.classList.add("outside");
+    if (isToday) dayEl.classList.add("today");
+    if (isSelected) dayEl.classList.add("selected");
+
+    const numberEl = document.createElement("div");
+    numberEl.className = "day-number";
+    numberEl.textContent = date.getDate();
+
+    const noteEl = document.createElement("div");
+    noteEl.className = "note-preview";
+    noteEl.textContent = state.notes.get(iso) || "Sin nota";
+
+    dayEl.append(numberEl, noteEl);
+    dayEl.addEventListener("click", () => updateSelectedDate(date));
+    calendarGrid.appendChild(dayEl);
+  });
+}
+
+function updateSelectedDate(date) {
+  state.selectedDate = new Date(date);
+  const iso = toISO(state.selectedDate);
+  const formatter = new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+  selectedDateLabel.textContent = capitalize(formatter.format(state.selectedDate));
+  noteInput.value = state.notes.get(iso) || "";
+  renderGrid();
+}
+
+function saveNote() {
+  const iso = toISO(state.selectedDate);
+  const text = noteInput.value.trim();
+  persistNote(iso, text);
+}
+
+function autoSaveNote() {
+  const iso = toISO(state.selectedDate);
+  const text = noteInput.value.trim();
+  persistNote(iso, text, true);
+}
+
+function deleteNote() {
+  const iso = toISO(state.selectedDate);
+  noteInput.value = "";
+  persistNote(iso, "");
+}
+
+function persistNote(iso, text, silent = false) {
+  if (text) {
+    state.notes.set(iso, text);
+  } else {
+    state.notes.delete(iso);
+  }
+
+  saveLocalNotes(Object.fromEntries(state.notes));
+
+  if (!silent) {
+    render();
+  }
+
+  if (state.isFirebaseEnabled) {
+    const docRef = firestore
+      .collection("calendars")
+      .doc(CALENDAR_ID)
+      .collection("notes")
+      .doc(iso);
+
+    if (text) {
+      docRef.set({
+        date: iso,
+        text,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      docRef.delete();
+    }
+  }
+}
+
+function shiftMonth(delta) {
+  const newDate = new Date(state.currentMonth);
+  newDate.setMonth(newDate.getMonth() + delta);
+  state.currentMonth = newDate;
+  render();
+  subscribeToVisibleRange();
+}
+
+function getCalendarDays(baseDate) {
+  const start = startOfCalendarGrid(baseDate);
+  const days = [];
+  for (let i = 0; i < 42; i += 1) {
+    const day = new Date(start);
+    day.setDate(start.getDate() + i);
+    days.push(day);
+  }
+  return days;
+}
+
+function startOfCalendarGrid(date) {
+  const start = startOfMonth(date);
+  const day = start.getDay() || 7;
+  start.setDate(start.getDate() - (day - 1));
+  return start;
+}
+
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function endOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+function getGridRange(date) {
+  const start = startOfCalendarGrid(date);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 41);
+  return { startISO: toISO(start), endISO: toISO(end) };
+}
+
+function toISO(date) {
+  return date.toISOString().split("T")[0];
+}
+
+function formatDateShort(date) {
+  return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short" }).format(date);
+}
+
+function isSameDay(a, b) {
+  return a.toDateString() === b.toDateString();
+}
+
+function capitalize(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function updateSyncStatus(message) {
+  if (message) {
+    syncStatusText.textContent = message;
+  }
+  if (!navigator.onLine) {
+    syncStatusDot.style.background = "#f97316";
+    syncStatusText.textContent = "Sin conexión: guardando localmente.";
     return;
   }
-  firebaseAuth = firebase.auth();
-  firebaseAuth.onAuthStateChanged((user) => {
-    if (user){
-      setupFirestoreSync();
-    }
-  });
-  firebaseAuth.signInAnonymously()
-    .catch((error) => {
-      console.warn("No se pudo iniciar sesión anónima.", error);
-      setupFirestoreSync();
-    });
+
+  if (state.isFirebaseEnabled) {
+    syncStatusDot.style.background = "#22c55e";
+  } else {
+    syncStatusDot.style.background = "#facc15";
+  }
 }
 
-function setupFirestoreSync(){
-  if (!firebase?.firestore) return;
-  firestore = firebase.firestore();
-  syncDocRef = firestore.collection("mealPlanner").doc(window.FIREBASE_SYNC_DOC || "default");
-
-  if (syncUnsubscribe){
-    syncUnsubscribe();
+function loadLocalNotes() {
+  const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
   }
-  syncUnsubscribe = syncDocRef.onSnapshot((snap) => {
-    const data = snap.data();
-    const remoteUpdatedAt = getRemoteTimestamp(data?.updatedAt ?? data?.updatedAtClient);
-    if (!hasRemoteSnapshot){
-      hasRemoteSnapshot = true;
-      if (!data?.payload && hasLocalData() && !hasScheduledInitialPush){
-        hasScheduledInitialPush = true;
-        scheduleSync();
-      }
-    }
-    if (!data?.payload) return;
-    if (data.updatedBy === clientId){
-      if (remoteUpdatedAt && remoteUpdatedAt > lastRemoteUpdate){
-        lastRemoteUpdate = remoteUpdatedAt;
-      }
-      return;
-    }
-    if (remoteUpdatedAt && remoteUpdatedAt <= lastRemoteUpdate) return;
-    lastRemoteUpdate = remoteUpdatedAt || lastRemoteUpdate;
-    applyRemoteState(data, remoteUpdatedAt || Date.now());
-  }, (error) => {
-    console.warn("Error en el listener de Firestore.", error);
-    if (error?.code === "permission-denied" || error?.code === "unauthenticated"){
-      firebaseAuth?.signInAnonymously().catch((authError) => {
-        console.warn("No se pudo reintentar auth anónima.", authError);
-      });
-    }
-  });
 }
 
-function applyRemoteState(data, remoteUpdatedAt){
-  if (!data?.payload) return;
-  isApplyingRemote = true;
-  const payload = data.payload;
-
-  if (payload.planState?.entries){
-    planState = payload.planState;
-    savePlanState(planState);
-  }
-  if (Array.isArray(payload.shoppingItems)){
-    shoppingItems = payload.shoppingItems;
-    saveShoppingItems(shoppingItems);
-  }
-
-  renderWeek();
-  renderShoppingList();
-  if (remoteUpdatedAt){
-    setLastUpdated(remoteUpdatedAt);
-  }
-  isApplyingRemote = false;
+function saveLocalNotes(notes) {
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(notes));
 }
 
-function scheduleSync(){
-  if (!syncDocRef) return;
-  clearTimeout(syncTimer);
-  syncTimer = setTimeout(pushStateToRemote, 800);
-}
-
-function pushStateToRemote(){
-  if (!syncDocRef) return;
-  const payload = {
-    planState,
-    shoppingItems
+function debounce(callback, wait) {
+  let timeout;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => callback.apply(null, args), wait);
   };
-  lastLocalSync = Date.now();
-  syncDocRef
-    .set({
-      payload,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAtClient: Date.now(),
-      updatedBy: clientId
-    })
-    .catch((error) => {
-      console.warn("No se pudo sincronizar con Firestore.", error);
-    });
 }
 
-// --- STORAGE ---
-function loadPlanState(){
-  try{
-    const raw = localStorage.getItem(LS.PLAN);
-    if (raw){
-      const parsed = JSON.parse(raw);
-      if (parsed?.entries) return parsed;
-    }
-  }catch{
-    // ignore
-  }
-  // migrate from old v1 if exists
-  const legacy = loadLegacyPlan();
-  if (legacy){
-    return legacy;
-  }
-  return { currentWeekStart: null, entries: {} };
-}
-
-function savePlanState(state){
-  localStorage.setItem(LS.PLAN, JSON.stringify(state));
-  if (!isApplyingRemote){
-    markLocalUpdate();
-    scheduleSync();
-  }
-}
-
-function loadLegacyPlan(){
-  try{
-    const raw = localStorage.getItem("mp_plan_v1");
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    if (!obj?.weekStartISO) return null;
-    const entries = {};
-    Object.entries(obj.slots || {}).forEach(([slotId, value]) => {
-      const [dayISO, mealType] = slotId.split("_");
-      if (!entries[dayISO]) entries[dayISO] = { lunch: null, dinner: null };
-      entries[dayISO][mealType] = { type: "text", value: "Receta guardada", ingredients: [] };
-    });
-    return { currentWeekStart: obj.weekStartISO, entries };
-  }catch{
-    return null;
-  }
-}
-
-function loadShoppingItems(){
-  try{
-    const raw = localStorage.getItem(LS.SHOP_ITEMS);
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  }catch{
-    return [];
-  }
-}
-
-function saveShoppingItems(arr){
-  localStorage.setItem(LS.SHOP_ITEMS, JSON.stringify(arr));
-  if (!isApplyingRemote){
-    markLocalUpdate();
-    scheduleSync();
-  }
-}
-
-// --- Helpers: dates ---
-function todayISO(){
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,"0");
-  const day = String(d.getDate()).padStart(2,"0");
-  return `${y}-${m}-${day}`;
-}
-
-function mondayOfISO(iso){
-  const d = new Date(iso + "T00:00:00");
-  const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1 - day);
-  d.setDate(d.getDate() + diff);
-  return toISO(d);
-}
-
-function addDaysISO(iso, days){
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return toISO(d);
-}
-
-function toISO(d){
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,"0");
-  const day = String(d.getDate()).padStart(2,"0");
-  return `${y}-${m}-${day}`;
-}
-
-function formatDateShort(iso){
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("es-ES", { day:"2-digit", month:"2-digit" });
-}
-
-function formatDayMonth(iso){
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("es-ES", { day:"2-digit", month:"short" });
-}
-
-function formatDateLong(iso){
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("es-ES", { weekday:"long", day:"2-digit", month:"long" });
-}
-
-// --- Helpers: misc ---
-function cryptoId(){
-  return (crypto?.randomUUID ? crypto.randomUUID() : `id_${Math.random().toString(16).slice(2)}_${Date.now()}`);
-}
-
-function escapeHtml(str){
-  return String(str)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
-function activateTab(key){
-  tabs.forEach(b => b.classList.toggle("active", b.dataset.tab === key));
-  Object.entries(panels).forEach(([k,p]) => p.classList.toggle("active", k === key));
-}
-
-function normalizeName(value){
-  return normalizeText(value);
-}
-
-function normalizeText(value){
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function loadLastUpdated(){
-  const raw = localStorage.getItem(LS.LAST_UPDATED);
-  const value = Number(raw);
-  return Number.isFinite(value) ? value : 0;
-}
-
-function setLastUpdated(timestamp){
-  lastLocalUpdate = timestamp;
-  localStorage.setItem(LS.LAST_UPDATED, String(timestamp));
-}
-
-function getRemoteTimestamp(updatedAt){
-  if (!updatedAt) return 0;
-  if (typeof updatedAt === "number") return updatedAt;
-  if (typeof updatedAt.toMillis === "function") return updatedAt.toMillis();
-  return 0;
-}
-
-function markLocalUpdate(){
-  setLastUpdated(Date.now());
-}
-
-function getClientId(){
-  const existing = localStorage.getItem(LS.CLIENT_ID);
-  if (existing) return existing;
-  const next = cryptoId();
-  localStorage.setItem(LS.CLIENT_ID, next);
-  return next;
-}
-
-function registerServiceWorker(){
-  if (!("serviceWorker" in navigator)) return;
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js");
+function registerServiceWorker() {
+  if (!(\"serviceWorker\" in navigator)) return;
+  window.addEventListener(\"load\", () => {
+    navigator.serviceWorker.register(\"sw.js\").catch(() => {});
   });
-}
-
-function hasLocalData(){
-  return Object.keys(planState.entries || {}).length > 0 || shoppingItems.length > 0;
 }

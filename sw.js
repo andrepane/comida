@@ -1,4 +1,4 @@
-const CACHE_NAME = "tupperia-v2";
+const CACHE_NAME = "shared-calendar-v1";
 const CORE_ASSETS = [
   ".",
   "index.html",
