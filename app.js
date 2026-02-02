@@ -519,14 +519,15 @@ function pushStateToRemote(){
     shoppingItems
   };
   lastLocalSync = Date.now();
-  syncDocRef.set(
-    {
+  syncDocRef
+    .set({
       payload,
       updatedAt: Date.now(),
       updatedBy: clientId
-    },
-    { merge: true }
-  );
+    })
+    .catch((error) => {
+      console.warn("No se pudo sincronizar con Firestore.", error);
+    });
 }
 
 // --- STORAGE ---
