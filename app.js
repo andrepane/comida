@@ -154,6 +154,7 @@ function renderGrid() {
     const isOutside = date.getMonth() !== state.currentMonth.getMonth();
     const isToday = isSameDay(date, new Date());
     const isSelected = isSameDay(date, state.selectedDate);
+    const hasNote = state.notes.has(iso);
 
     const dayEl = document.createElement("button");
     dayEl.type = "button";
@@ -161,6 +162,7 @@ function renderGrid() {
     if (isOutside) dayEl.classList.add("outside");
     if (isToday) dayEl.classList.add("today");
     if (isSelected) dayEl.classList.add("selected");
+    if (hasNote) dayEl.classList.add("has-note");
 
     const numberEl = document.createElement("div");
     numberEl.className = "day-number";
@@ -171,6 +173,13 @@ function renderGrid() {
     noteEl.textContent = state.notes.get(iso) || "Sin nota";
 
     dayEl.append(numberEl, noteEl);
+
+    if (hasNote) {
+      const indicator = document.createElement("span");
+      indicator.className = "note-indicator";
+      indicator.setAttribute("aria-label", "Nota guardada");
+      dayEl.appendChild(indicator);
+    }
     dayEl.addEventListener("click", () => updateSelectedDate(date));
     calendarGrid.appendChild(dayEl);
   });
