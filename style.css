@@ -131,6 +131,7 @@ body {
   gap: 0.4rem;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
 }
 
 .day:hover {
@@ -164,6 +165,17 @@ body {
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+}
+
+.note-indicator {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
 }
 
 .note-panel {
