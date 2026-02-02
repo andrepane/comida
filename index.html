@@ -131,6 +131,9 @@
       appId: "1:1074209619328:web:02b030bdec0bc599579565"
     };
     window.FIREBASE_SYNC_DOC = window.FIREBASE_SYNC_DOC || "default";
+    if (window.firebase && !firebase.apps.length) {
+      firebase.initializeApp(window.FIREBASE_CONFIG);
+    }
   </script>
   <script src="app.js"></script>
 </body>
