@@ -13,6 +13,15 @@ const LS = {
 
 const DAYS_ES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCvxpyyTZvVYhXX8MrtJ1PORMMKMJHD18M",
+  authDomain: "comida-fbfbd.firebaseapp.com",
+  projectId: "comida-fbfbd",
+  storageBucket: "comida-fbfbd.firebasestorage.app",
+  messagingSenderId: "1074209619328",
+  appId: "1:1074209619328:web:02b030bdec0bc599579565"
+};
+
 const CATEGORY_LABELS = {
   verdura: "Verdura",
   fruta: "Fruta",
@@ -438,7 +447,11 @@ function getTwoWeekRange(startISO){
 
 // --- Sync (Firebase Firestore) ---
 function initFirebaseSync(){
-  if (!window.firebase || !window.FIREBASE_CONFIG) return;
+  if (!window.FIREBASE_CONFIG){
+    window.FIREBASE_CONFIG = DEFAULT_FIREBASE_CONFIG;
+  }
+  window.FIREBASE_SYNC_DOC = window.FIREBASE_SYNC_DOC || "default";
+  if (!window.firebase) return;
   if (!firebase.apps.length){
     firebase.initializeApp(window.FIREBASE_CONFIG);
   }
