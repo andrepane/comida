@@ -58,6 +58,8 @@ let hasScheduledInitialPush = false;
 const clientId = getClientId();
 let firestore = null;
 let syncDocRef = null;
+let syncUnsubscribe = null;
+let firebaseAuth = null;
 
 // --- DOM ---
 const tabs = Array.from(document.querySelectorAll(".tab"));
@@ -460,12 +462,13 @@ function initFirebaseSync(){
     setupFirestoreSync();
     return;
   }
-  const auth = firebase.auth();
-  auth.onAuthStateChanged((user) => {
-    if (!user) return;
-    setupFirestoreSync();
+  firebaseAuth = firebase.auth();
+  firebaseAuth.onAuthStateChanged((user) => {
+    if (user){
+      setupFirestoreSync();
+    }
   });
-  auth.signInAnonymously()
+  firebaseAuth.signInAnonymously()
     .catch((error) => {
       console.warn("No se pudo iniciar sesión anónima.", error);
       setupFirestoreSync();
@@ -473,11 +476,14 @@ function initFirebaseSync(){
 }
 
 function setupFirestoreSync(){
-  if (firestore && syncDocRef) return;
+  if (!firebase?.firestore) return;
   firestore = firebase.firestore();
   syncDocRef = firestore.collection("mealPlanner").doc(window.FIREBASE_SYNC_DOC || "default");
 
-  syncDocRef.onSnapshot((snap) => {
+  if (syncUnsubscribe){
+    syncUnsubscribe();
+  }
+  syncUnsubscribe = syncDocRef.onSnapshot((snap) => {
     const data = snap.data();
     const remoteUpdatedAt = getRemoteTimestamp(data?.updatedAt ?? data?.updatedAtClient);
     if (!hasRemoteSnapshot){
@@ -497,6 +503,13 @@ function setupFirestoreSync(){
     if (remoteUpdatedAt && remoteUpdatedAt <= lastRemoteUpdate) return;
     lastRemoteUpdate = remoteUpdatedAt || lastRemoteUpdate;
     applyRemoteState(data, remoteUpdatedAt || Date.now());
+  }, (error) => {
+    console.warn("Error en el listener de Firestore.", error);
+    if (error?.code === "permission-denied" || error?.code === "unauthenticated"){
+      firebaseAuth?.signInAnonymously().catch((authError) => {
+        console.warn("No se pudo reintentar auth anónima.", authError);
+      });
+    }
   });
 }
 
