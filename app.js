@@ -35,10 +35,17 @@ const rangeSubtitle = document.getElementById("rangeSubtitle");
 const shoppingForm = document.getElementById("shoppingForm");
 const shoppingInput = document.getElementById("shoppingInput");
 const shoppingList = document.getElementById("shoppingList");
+const shoppingEmpty = document.getElementById("shoppingEmpty");
 const viewButtons = document.querySelectorAll(".switch-btn");
 const viewPanels = document.querySelectorAll(".view-panel");
 const statusBadge = document.querySelector(".status-badge");
 const themeToggle = document.getElementById("themeToggle");
+const syncHint = document.getElementById("syncHint");
+const emptyDaysPill = document.getElementById("emptyDaysPill");
+const remoteNotice = document.getElementById("remoteNotice");
+const nextEmptyBtn = document.getElementById("nextEmpty");
+const clearCheckedBtn = document.getElementById("clearChecked");
+const collapseAllBtn = document.getElementById("collapseAllCategories");
 
 const SHARED_CALENDAR_ID = "calendario-compartido";
 const SHOPPING_CATEGORIES = [
@@ -47,6 +54,11 @@ const SHOPPING_CATEGORIES = [
   { id: "fruta-verdura", label: "Fruta y verdura" },
   { id: "hidratos", label: "Hidratos" },
   { id: "lacteos", label: "Lácteos" },
+  { id: "congelados", label: "Congelados" },
+  { id: "bebidas", label: "Bebidas" },
+  { id: "desayuno", label: "Desayuno" },
+  { id: "higiene", label: "Higiene" },
+  { id: "snacks", label: "Snacks" },
   { id: "despensa", label: "Despensa" },
   { id: "otros", label: "Otros" }
 ];
@@ -71,7 +83,10 @@ const state = {
   flashTimers: new Map(),
   dayElements: new Map(),
   pendingSaves: 0,
-  inFlight: 0
+  inFlight: 0,
+  lastError: null,
+  remoteNoticeTimer: null,
+  seenDays: new Set()
 };
 
 function getMonday(date) {
@@ -97,26 +112,46 @@ function formatDayName(date) {
 function updateStatus() {
   if (!state.userId) {
     syncStatus.textContent = "Preparando…";
+    if (syncHint) {
+      syncHint.textContent = "Conectando con la nube.";
+    }
     setStatusBadge("is-preparing");
     return;
   }
   if (!navigator.onLine) {
     syncStatus.textContent = "Sin conexión";
+    if (syncHint) {
+      syncHint.textContent = "Puedes seguir editando. Se sincronizará al volver.";
+    }
     setStatusBadge("is-offline");
+    return;
+  }
+  if (state.lastError) {
+    syncStatus.textContent = "Problemas al guardar";
+    if (syncHint) {
+      syncHint.textContent = state.lastError;
+    }
+    setStatusBadge("is-error");
     return;
   }
   if (state.pendingSaves > 0 || state.inFlight > 0) {
     syncStatus.textContent = "Guardando…";
+    if (syncHint) {
+      syncHint.textContent = "Tus cambios se están guardando.";
+    }
     setStatusBadge("is-saving");
   } else {
     syncStatus.textContent = "Guardado";
+    if (syncHint) {
+      syncHint.textContent = "Todo sincronizado.";
+    }
     setStatusBadge("is-saved");
   }
 }
 
 function setStatusBadge(statusClass) {
   if (!statusBadge) return;
-  statusBadge.classList.remove("is-preparing", "is-saving", "is-saved", "is-offline");
+  statusBadge.classList.remove("is-preparing", "is-saving", "is-saved", "is-offline", "is-error");
   statusBadge.classList.add(statusClass);
 }
 
@@ -127,6 +162,7 @@ function handleConnectivity() {
 function resetListeners() {
   state.unsubscribes.forEach((unsubscribe) => unsubscribe());
   state.unsubscribes.clear();
+  state.seenDays.clear();
 }
 
 function resetTimers() {
@@ -150,6 +186,9 @@ function buildCalendar() {
     const card = document.createElement("article");
     card.className = "day-card";
     card.dataset.dateId = dateId;
+    if (formatDateId(new Date()) === dateId) {
+      card.classList.add("is-today");
+    }
 
     const header = document.createElement("header");
     const title = document.createElement("div");
@@ -166,13 +205,26 @@ function buildCalendar() {
     clearBtn.textContent = "Limpiar";
     header.append(title, clearBtn);
 
+    const statusRow = document.createElement("div");
+    statusRow.className = "day-status";
+
+    const lunchStatus = document.createElement("span");
+    lunchStatus.className = "day-chip";
+    lunchStatus.textContent = "Comida";
+
+    const dinnerStatus = document.createElement("span");
+    dinnerStatus.className = "day-chip";
+    dinnerStatus.textContent = "Cena";
+
+    statusRow.append(lunchStatus, dinnerStatus);
+
     const lunchField = document.createElement("div");
     lunchField.className = "field";
     const lunchLabel = document.createElement("label");
     lunchLabel.textContent = "Comida";
     const lunchInput = document.createElement("input");
     lunchInput.type = "text";
-    lunchInput.placeholder = "Ej: Ensalada";
+    lunchInput.placeholder = "Ej: Ensalada rápida";
     lunchField.append(lunchLabel, lunchInput);
 
     const dinnerField = document.createElement("div");
@@ -181,28 +233,40 @@ function buildCalendar() {
     dinnerLabel.textContent = "Cena";
     const dinnerInput = document.createElement("input");
     dinnerInput.type = "text";
-    dinnerInput.placeholder = "Ej: Pasta";
+    dinnerInput.placeholder = "Ej: Pasta al horno";
     dinnerField.append(dinnerLabel, dinnerInput);
 
-    card.append(header, lunchField, dinnerField);
+    card.append(header, statusRow, lunchField, dinnerField);
     calendarGrid.append(card);
 
     state.dayElements.set(dateId, {
       lunchInput,
       dinnerInput,
-      clearBtn
+      clearBtn,
+      lunchStatus,
+      dinnerStatus,
+      card
     });
 
-    lunchInput.addEventListener("input", () => scheduleSave(dateId));
-    dinnerInput.addEventListener("input", () => scheduleSave(dateId));
+    lunchInput.addEventListener("input", () => {
+      updateDayState(dateId, lunchInput.value, dinnerInput.value);
+      scheduleSave(dateId);
+    });
+    dinnerInput.addEventListener("input", () => {
+      updateDayState(dateId, lunchInput.value, dinnerInput.value);
+      scheduleSave(dateId);
+    });
     clearBtn.addEventListener("click", () => {
       lunchInput.value = "";
       dinnerInput.value = "";
+      updateDayState(dateId, "", "");
       scheduleSave(dateId, true);
     });
+    updateDayState(dateId, "", "");
   }
 
   updateRangeLabels();
+  updateEmptyDaysCount();
   if (state.userId) {
     attachListeners();
   }
@@ -225,6 +289,10 @@ function attachListeners() {
         updateInputs(dateId, "", "");
         return;
       }
+      if (state.seenDays.has(dateId) && data.updatedBy && data.updatedBy !== state.userId) {
+        notifyRemoteChange(dateId);
+      }
+      state.seenDays.add(dateId);
       updateInputs(dateId, data.lunch || "", data.dinner || "");
     });
     state.unsubscribes.set(dateId, unsubscribe);
@@ -249,6 +317,8 @@ function updateInputs(dateId, lunchValue, dinnerValue) {
   if (card && shouldFlash) {
     triggerFlash(card, dateId);
   }
+
+  updateDayState(dateId, lunchValue, dinnerValue);
 }
 
 function triggerFlash(card, dateId) {
@@ -289,6 +359,7 @@ async function saveDay(dateId) {
   if (!elements) return;
 
   state.inFlight += 1;
+  state.lastError = null;
   updateStatus();
   const docRef = doc(db, "calendars", state.calendarId, "days", dateId);
 
@@ -303,6 +374,9 @@ async function saveDay(dateId) {
       },
       { merge: true }
     );
+    state.lastError = null;
+  } catch {
+    state.lastError = "No se pudo guardar. Se reintentará al volver online.";
   } finally {
     state.inFlight = Math.max(0, state.inFlight - 1);
     updateStatus();
@@ -381,6 +455,21 @@ function getShoppingCategory(value) {
   if (includesAny(["leche", "yogur", "yogurt", "queso", "mantequilla", "nata"])) {
     return "lacteos";
   }
+  if (includesAny(["congelado", "helado", "pizza", "verduras congeladas", "croquetas"])) {
+    return "congelados";
+  }
+  if (includesAny(["agua", "zumo", "cerveza", "vino", "refresco", "cola", "cafe", "te", "infusion"])) {
+    return "bebidas";
+  }
+  if (includesAny(["cacao", "cereales", "galletas", "tostadas", "mermelada", "miel", "cafe", "te"])) {
+    return "desayuno";
+  }
+  if (includesAny(["papel", "detergente", "suavizante", "jabon", "champu", "gel", "pasta dientes", "cepillo"])) {
+    return "higiene";
+  }
+  if (includesAny(["snack", "patatas fritas", "frutos secos", "palomitas", "aperitivo", "chocolate"])) {
+    return "snacks";
+  }
   if (includesAny(["legumbre", "lenteja", "garbanzo", "judia", "conserva", "aceite", "especia", "sal", "azucar", "vinagre"])) {
     return "despensa";
   }
@@ -407,16 +496,55 @@ function ensureCategoryGroup(categoryId) {
   title.className = "shopping-category__title";
   title.textContent = categoryMeta.label;
 
+  const count = document.createElement("span");
+  count.className = "shopping-category__count";
+  count.textContent = "0";
+
+  const headerActions = document.createElement("div");
+  headerActions.className = "shopping-category__actions";
+
+  const clearCheckedButton = document.createElement("button");
+  clearCheckedButton.type = "button";
+  clearCheckedButton.className = "shopping-category__button";
+  clearCheckedButton.textContent = "Vaciar comprados";
+  clearCheckedButton.addEventListener("click", () => {
+    const list = group.querySelector(".shopping-category__list");
+    if (!list) return;
+    Array.from(list.querySelectorAll(".shopping-item.is-checked")).forEach((item) => item.remove());
+    removeCategoryGroupIfEmpty(list);
+    updateShoppingEmptyState();
+  });
+
+  const toggleButton = document.createElement("button");
+  toggleButton.type = "button";
+  toggleButton.className = "shopping-category__button";
+  toggleButton.textContent = "Colapsar";
+  toggleButton.setAttribute("aria-expanded", "true");
+  toggleButton.addEventListener("click", () => {
+    const isCollapsed = group.classList.toggle("is-collapsed");
+    toggleButton.textContent = isCollapsed ? "Expandir" : "Colapsar";
+    toggleButton.setAttribute("aria-expanded", String(!isCollapsed));
+    persistCategoryCollapse(categoryMeta.id, isCollapsed);
+  });
+
+  headerActions.append(clearCheckedButton, toggleButton);
+
   const accent = document.createElement("span");
   accent.className = "shopping-category__accent";
   accent.setAttribute("aria-hidden", "true");
 
-  header.append(title, accent);
+  header.append(title, count, accent, headerActions);
 
   const list = document.createElement("ul");
   list.className = "shopping-category__list";
 
   group.append(header, list);
+
+  if (isCategoryCollapsed(categoryMeta.id)) {
+    group.classList.add("is-collapsed");
+    toggleButton.textContent = "Expandir";
+    toggleButton.setAttribute("aria-expanded", "false");
+  }
 
   const categoryIndex = SHOPPING_CATEGORIES.findIndex((category) => category.id === categoryMeta.id);
   const groups = Array.from(shoppingList.querySelectorAll(".shopping-category"));
@@ -460,6 +588,9 @@ function updateShoppingItemCategory(item, nextCategoryId) {
 
   targetList.append(item);
   removeCategoryGroupIfEmpty(currentList);
+  refreshCategoryCount(currentList);
+  refreshCategoryCount(targetList);
+  updateShoppingEmptyState();
 }
 
 function addShoppingItem(value) {
@@ -517,6 +648,7 @@ function addShoppingItem(value) {
   toggleBtn.addEventListener("click", () => {
     const isChecked = item.classList.toggle("is-checked");
     toggleBtn.setAttribute("aria-pressed", String(isChecked));
+    refreshCategoryCount(groupList);
   });
 
   const deleteBtn = document.createElement("button");
@@ -527,11 +659,15 @@ function addShoppingItem(value) {
   deleteBtn.addEventListener("click", () => {
     item.remove();
     removeCategoryGroupIfEmpty(groupList);
+    refreshCategoryCount(groupList);
+    updateShoppingEmptyState();
   });
 
   actions.append(toggleBtn, deleteBtn);
   item.append(label, categoryButton, actions);
   groupList.append(item);
+  refreshCategoryCount(groupList);
+  updateShoppingEmptyState();
 }
 
 function initShoppingList() {
@@ -544,6 +680,37 @@ function initShoppingList() {
     shoppingInput.value = "";
     shoppingInput.focus();
   });
+  if (clearCheckedBtn) {
+    clearCheckedBtn.addEventListener("click", () => {
+      const checkedItems = shoppingList.querySelectorAll(".shopping-item.is-checked");
+      checkedItems.forEach((item) => {
+        const list = item.closest(".shopping-category__list");
+        item.remove();
+        removeCategoryGroupIfEmpty(list);
+        refreshCategoryCount(list);
+      });
+      updateShoppingEmptyState();
+    });
+  }
+  if (collapseAllBtn) {
+    collapseAllBtn.addEventListener("click", () => {
+      const groups = shoppingList.querySelectorAll(".shopping-category");
+      const hasExpanded = Array.from(groups).some((group) => !group.classList.contains("is-collapsed"));
+      groups.forEach((group) => {
+        const categoryId = group.dataset.category;
+        const toggleButton = group.querySelector(".shopping-category__button:last-child");
+        const shouldCollapse = hasExpanded;
+        group.classList.toggle("is-collapsed", shouldCollapse);
+        if (toggleButton) {
+          toggleButton.textContent = shouldCollapse ? "Expandir" : "Colapsar";
+          toggleButton.setAttribute("aria-expanded", String(!shouldCollapse));
+        }
+        persistCategoryCollapse(categoryId, shouldCollapse);
+      });
+      collapseAllBtn.textContent = hasExpanded ? "Expandir todo" : "Colapsar todo";
+    });
+  }
+  updateShoppingEmptyState();
 }
 
 function setActiveView(viewId) {
@@ -594,9 +761,121 @@ function initThemeToggle() {
   });
 }
 
+function updateDayState(dateId, lunchValue, dinnerValue) {
+  const elements = state.dayElements.get(dateId);
+  if (!elements) return;
+  const lunchFilled = Boolean(lunchValue.trim());
+  const dinnerFilled = Boolean(dinnerValue.trim());
+
+  elements.lunchStatus.classList.toggle("is-filled", lunchFilled);
+  elements.lunchStatus.classList.toggle("is-empty", !lunchFilled);
+  elements.dinnerStatus.classList.toggle("is-filled", dinnerFilled);
+  elements.dinnerStatus.classList.toggle("is-empty", !dinnerFilled);
+
+  elements.card.classList.toggle("is-empty", !lunchFilled && !dinnerFilled);
+  updateEmptyDaysCount();
+}
+
+function updateEmptyDaysCount() {
+  if (!emptyDaysPill) return;
+  const emptyCount = Array.from(state.dayElements.values()).filter(
+    (elements) =>
+      !elements.lunchInput.value.trim() && !elements.dinnerInput.value.trim()
+  ).length;
+  if (emptyCount === 0) {
+    emptyDaysPill.textContent = "Todo completo";
+    emptyDaysPill.classList.remove("is-warning");
+  } else if (emptyCount === 1) {
+    emptyDaysPill.textContent = "1 día vacío";
+    emptyDaysPill.classList.add("is-warning");
+  } else {
+    emptyDaysPill.textContent = `${emptyCount} días vacíos`;
+    emptyDaysPill.classList.add("is-warning");
+  }
+}
+
+function notifyRemoteChange(dateId) {
+  if (!remoteNotice) return;
+  const [year, month, day] = dateId.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  const label = `${formatDayName(date)} ${dateFormatter.format(date)}`;
+  showCalendarNotice(`Tu pareja actualizó ${label}.`);
+}
+
+function showCalendarNotice(message) {
+  if (!remoteNotice) return;
+  remoteNotice.textContent = message;
+  remoteNotice.classList.add("is-visible");
+  if (state.remoteNoticeTimer) {
+    clearTimeout(state.remoteNoticeTimer);
+  }
+  state.remoteNoticeTimer = setTimeout(() => {
+    remoteNotice.classList.remove("is-visible");
+  }, 3500);
+}
+
+function jumpToNextEmptyDay() {
+  const emptyEntry = Array.from(state.dayElements.entries()).find(
+    ([, elements]) =>
+      !elements.lunchInput.value.trim() && !elements.dinnerInput.value.trim()
+  );
+  if (!emptyEntry) {
+    showCalendarNotice("No quedan huecos en estas dos semanas.");
+    return;
+  }
+  const [, elements] = emptyEntry;
+  const card = elements.card;
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  elements.lunchInput.focus();
+  showCalendarNotice("Primer día vacío listo para editar.");
+}
+
+const COLLAPSED_CATEGORIES_KEY = "collapsedCategories";
+
+function loadCollapsedCategories() {
+  try {
+    const stored = localStorage.getItem(COLLAPSED_CATEGORIES_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistCategoryCollapse(categoryId, collapsed) {
+  const stored = loadCollapsedCategories();
+  stored[categoryId] = collapsed;
+  localStorage.setItem(COLLAPSED_CATEGORIES_KEY, JSON.stringify(stored));
+}
+
+function isCategoryCollapsed(categoryId) {
+  const stored = loadCollapsedCategories();
+  return Boolean(stored[categoryId]);
+}
+
+function refreshCategoryCount(listElement) {
+  if (!listElement) return;
+  const group = listElement.closest(".shopping-category");
+  if (!group) return;
+  const countLabel = group.querySelector(".shopping-category__count");
+  if (!countLabel) return;
+  const items = listElement.querySelectorAll(".shopping-item");
+  const checked = listElement.querySelectorAll(".shopping-item.is-checked");
+  countLabel.textContent = `${checked.length}/${items.length}`;
+}
+
+function updateShoppingEmptyState() {
+  if (!shoppingEmpty) return;
+  if (!shoppingList) return;
+  const totalItems = shoppingList.querySelectorAll(".shopping-item").length;
+  shoppingEmpty.classList.toggle("is-visible", totalItems === 0);
+}
+
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
 todayBtn.addEventListener("click", jumpToToday);
+if (nextEmptyBtn) {
+  nextEmptyBtn.addEventListener("click", jumpToNextEmptyDay);
+}
 
 window.addEventListener("online", handleConnectivity);
 window.addEventListener("offline", handleConnectivity);

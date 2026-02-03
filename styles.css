@@ -1,6 +1,12 @@
 :root {
   color-scheme: light;
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
   --bg: #f6f5f2;
   --card: #ffffff;
   --text: #1f2937;
@@ -37,6 +43,7 @@ body {
   background: var(--bg);
   color: var(--text);
   padding: 0 0 64px;
+  line-height: 1.5;
 }
 
 h1,
@@ -98,6 +105,21 @@ a {
   align-items: center;
 }
 
+.status-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.sync-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+  text-align: right;
+  max-width: 220px;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -138,6 +160,12 @@ body[data-theme="dark"] .status-badge {
   background: rgba(248, 113, 113, 0.18);
   color: #b91c1c;
   border-color: rgba(248, 113, 113, 0.4);
+}
+
+.status-badge.is-error {
+  background: rgba(249, 115, 22, 0.18);
+  color: #c2410c;
+  border-color: rgba(249, 115, 22, 0.4);
 }
 
 .status-dot {
@@ -219,6 +247,7 @@ button:focus-visible {
   align-items: center;
   gap: 16px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .section-header p {
@@ -228,6 +257,43 @@ button:focus-visible {
 
 .calendar-wrapper {
   padding: 0;
+}
+
+.section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.summary-pill {
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(34, 197, 94, 0.16);
+  color: #166534;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.summary-pill.is-warning {
+  background: rgba(251, 191, 36, 0.16);
+  color: #b45309;
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+.summary-pill.is-muted {
+  background: rgba(226, 232, 240, 0.6);
+  color: var(--muted);
+  border-color: var(--border);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.summary-pill.is-muted.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .calendar-controls {
@@ -277,6 +343,20 @@ button:focus-visible {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.day-card.is-empty {
+  border-style: dashed;
+  background: rgba(248, 250, 252, 0.7);
+}
+
+body[data-theme="dark"] .day-card.is-empty {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.day-card.is-today {
+  border-color: rgba(239, 106, 82, 0.6);
+  box-shadow: 0 12px 26px rgba(239, 106, 82, 0.2);
+}
+
 .day-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow);
@@ -300,6 +380,36 @@ button:focus-visible {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+}
+
+.day-status {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.day-chip {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: rgba(226, 232, 240, 0.6);
+}
+
+.day-chip.is-filled {
+  background: rgba(34, 197, 94, 0.16);
+  color: #166534;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.day-chip.is-empty {
+  background: rgba(248, 113, 113, 0.14);
+  color: #b91c1c;
+  border-color: rgba(248, 113, 113, 0.3);
 }
 
 .day-card h3 {
@@ -403,6 +513,7 @@ body[data-theme="dark"] .field input {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .shopping-card h2 {
@@ -419,6 +530,30 @@ body[data-theme="dark"] .field input {
   flex-wrap: wrap;
   gap: 12px;
   align-items: flex-end;
+}
+
+.shopping-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.empty-state {
+  display: none;
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  background: rgba(248, 250, 252, 0.6);
+}
+
+.empty-state.is-visible {
+  display: block;
+}
+
+body[data-theme="dark"] .empty-state {
+  background: rgba(15, 23, 42, 0.6);
 }
 
 .shopping-form .field {
@@ -456,12 +591,43 @@ body[data-theme="dark"] .shopping-category {
   justify-content: space-between;
   gap: 12px;
   font-weight: 700;
+  flex-wrap: wrap;
 }
 
 .shopping-category__title {
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.shopping-category__count {
+  font-size: 12px;
+  color: var(--muted);
+  background: rgba(226, 232, 240, 0.8);
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+
+.shopping-category__actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.shopping-category__button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shopping-category__button:hover {
+  border-color: var(--primary);
 }
 
 .shopping-category__accent {
@@ -478,6 +644,10 @@ body[data-theme="dark"] .shopping-category {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.shopping-category.is-collapsed .shopping-category__list {
+  display: none;
 }
 
 .shopping-item {
@@ -660,6 +830,31 @@ body[data-theme="dark"] .shopping-item.is-checked {
   --category-accent: #f97316;
 }
 
+.shopping-category[data-category="congelados"],
+.shopping-item[data-category="congelados"] {
+  --category-accent: #38bdf8;
+}
+
+.shopping-category[data-category="bebidas"],
+.shopping-item[data-category="bebidas"] {
+  --category-accent: #0ea5e9;
+}
+
+.shopping-category[data-category="desayuno"],
+.shopping-item[data-category="desayuno"] {
+  --category-accent: #facc15;
+}
+
+.shopping-category[data-category="higiene"],
+.shopping-item[data-category="higiene"] {
+  --category-accent: #c4b5fd;
+}
+
+.shopping-category[data-category="snacks"],
+.shopping-item[data-category="snacks"] {
+  --category-accent: #fb7185;
+}
+
 .shopping-category[data-category="otros"] {
   --category-accent: #94a3b8;
 }
@@ -689,6 +884,14 @@ body[data-theme="dark"] .shopping-item.is-checked {
 
   .range {
     order: -1;
+  }
+
+  .status-stack {
+    align-items: flex-start;
+  }
+
+  .sync-hint {
+    text-align: left;
   }
 }
 
