@@ -69,11 +69,12 @@ const categoryIcons = {
   "fruta-verdura": "fa-leaf",
   hidratos: "fa-bread-slice",
   lacteos: "fa-cheese",
-  despensa: "fa-can-food",
+  despensa: "fa-jar",
   bebidas: "fa-wine-glass",
-  snacks: "fa-candy",
+  snacks: "fa-cookie-bite",
   limpieza: "fa-soap",
-  otros: "fa-box"
+  otros: "fa-box",
+  congelados: "fa-ice-cream"
 };
 
 const weekdayFormatter = new Intl.DateTimeFormat("es-ES", { weekday: "long" });
