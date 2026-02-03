@@ -26,16 +26,14 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 const calendarGrid = document.getElementById("calendarGrid");
-const calendarCode = document.getElementById("calendarCode");
-const copyCodeBtn = document.getElementById("copyCode");
-const joinInput = document.getElementById("joinCode");
-const joinBtn = document.getElementById("joinBtn");
 const prevWeekBtn = document.getElementById("prevWeek");
 const nextWeekBtn = document.getElementById("nextWeek");
 const todayBtn = document.getElementById("today");
 const syncStatus = document.getElementById("syncStatus");
 const rangeTitle = document.getElementById("rangeTitle");
 const rangeSubtitle = document.getElementById("rangeSubtitle");
+
+const SHARED_CALENDAR_ID = "calendario-compartido";
 
 const weekdayFormatter = new Intl.DateTimeFormat("es-ES", { weekday: "long" });
 const dateFormatter = new Intl.DateTimeFormat("es-ES", {
@@ -49,7 +47,7 @@ const rangeFormatter = new Intl.DateTimeFormat("es-ES", {
 });
 
 const state = {
-  calendarId: null,
+  calendarId: SHARED_CALENDAR_ID,
   currentMonday: getMonday(new Date()),
   userId: null,
   unsubscribes: new Map(),
@@ -93,28 +91,6 @@ function updateStatus() {
 
 function handleConnectivity() {
   updateStatus();
-}
-
-function generateCalendarId(length = 20) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  const values = new Uint8Array(length);
-  crypto.getRandomValues(values);
-  return Array.from(values, (value) => chars[value % chars.length]).join("");
-}
-
-function getStoredCalendarId() {
-  const stored = localStorage.getItem("calendarId");
-  if (stored && stored.trim().length >= 16) {
-    return stored.trim();
-  }
-  const newId = generateCalendarId();
-  localStorage.setItem("calendarId", newId);
-  return newId;
-}
-
-function setCalendarId(newId) {
-  state.calendarId = newId;
-  calendarCode.textContent = newId;
 }
 
 function resetListeners() {
@@ -295,30 +271,6 @@ function initCalendar() {
   updateStatus();
 }
 
-copyCodeBtn.addEventListener("click", async () => {
-  if (!state.calendarId) return;
-  try {
-    await navigator.clipboard.writeText(state.calendarId);
-    copyCodeBtn.textContent = "¡Copiado!";
-    setTimeout(() => {
-      copyCodeBtn.textContent = "Copiar código";
-    }, 1500);
-  } catch (error) {
-    copyCodeBtn.textContent = "No se pudo copiar";
-  }
-});
-
-joinBtn.addEventListener("click", () => {
-  const newCode = joinInput.value.trim();
-  if (newCode.length < 16) {
-    joinInput.focus();
-    return;
-  }
-  localStorage.setItem("calendarId", newCode);
-  setCalendarId(newCode);
-  initCalendar();
-});
-
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
 todayBtn.addEventListener("click", jumpToToday);
@@ -337,5 +289,4 @@ onAuthStateChanged(auth, (user) => {
   initCalendar();
 });
 
-setCalendarId(getStoredCalendarId());
 updateStatus();
