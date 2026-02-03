@@ -66,7 +66,7 @@ const SHOPPING_CATEGORIES = [
 const categoryIcons = {
   carne: "fa-drumstick-bite",
   pescado: "fa-fish",
-  "fruta-verdura": "fa-leaf",
+  "fruta-verdura": "fa-apple-whole",
   hidratos: "fa-bread-slice",
   lacteos: "fa-cheese",
   despensa: "fa-jar",
