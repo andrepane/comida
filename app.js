@@ -453,9 +453,9 @@ function updateShoppingItemCategory(item, nextCategoryId) {
   const currentList = item.closest(".shopping-category")?.querySelector(".shopping-category__list");
 
   item.dataset.category = categoryMeta.id;
-  const tag = item.querySelector(".shopping-item__tag");
-  if (tag) {
-    tag.textContent = categoryMeta.label;
+  const categoryLabel = item.querySelector(".shopping-item__category-label");
+  if (categoryLabel) {
+    categoryLabel.textContent = categoryMeta.label;
   }
 
   targetList.append(item);
@@ -475,9 +475,12 @@ function addShoppingItem(value) {
   label.className = "shopping-item__label";
   label.textContent = value;
 
-  const tag = document.createElement("span");
-  tag.className = "shopping-item__tag";
-  tag.textContent = categoryMeta.label;
+  const categoryButton = document.createElement("label");
+  categoryButton.className = "shopping-item__category";
+
+  const categoryLabel = document.createElement("span");
+  categoryLabel.className = "shopping-item__category-label";
+  categoryLabel.textContent = categoryMeta.label;
 
   const select = document.createElement("select");
   select.className = "shopping-item__select";
@@ -498,6 +501,8 @@ function addShoppingItem(value) {
     setCustomCategory(value, nextCategoryId);
     updateShoppingItemCategory(item, nextCategoryId);
   });
+
+  categoryButton.append(categoryLabel, select);
 
   const actions = document.createElement("div");
   actions.className = "shopping-item__actions";
@@ -525,7 +530,7 @@ function addShoppingItem(value) {
   });
 
   actions.append(toggleBtn, deleteBtn);
-  item.append(label, tag, select, actions);
+  item.append(label, categoryButton, actions);
   groupList.append(item);
 }
 
