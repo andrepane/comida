@@ -406,6 +406,7 @@ function normalizeText(value) {
 }
 
 const CUSTOM_CATEGORIES_KEY = "customCategories";
+const SHOPPING_ITEMS_KEY = "shoppingItems";
 
 function loadCustomCategories() {
   try {
@@ -418,6 +419,29 @@ function loadCustomCategories() {
 
 function saveCustomCategories(categories) {
   localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(categories));
+}
+
+function loadShoppingItems() {
+  try {
+    const stored = localStorage.getItem(SHOPPING_ITEMS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveShoppingItems(items) {
+  localStorage.setItem(SHOPPING_ITEMS_KEY, JSON.stringify(items));
+}
+
+function persistShoppingList() {
+  if (!shoppingList) return;
+  const items = Array.from(shoppingList.querySelectorAll(".shopping-item")).map((item) => ({
+    label: item.querySelector(".shopping-item__label")?.textContent ?? "",
+    categoryId: item.dataset.category || "otros",
+    checked: item.classList.contains("is-checked")
+  }));
+  saveShoppingItems(items);
 }
 
 function getCustomCategory(value) {
@@ -512,7 +536,9 @@ function ensureCategoryGroup(categoryId) {
     if (!list) return;
     Array.from(list.querySelectorAll(".shopping-item.is-checked")).forEach((item) => item.remove());
     removeCategoryGroupIfEmpty(list);
+    refreshCategoryCount(list);
     updateShoppingEmptyState();
+    persistShoppingList();
   });
 
   const toggleButton = document.createElement("button");
@@ -591,10 +617,11 @@ function updateShoppingItemCategory(item, nextCategoryId) {
   refreshCategoryCount(currentList);
   refreshCategoryCount(targetList);
   updateShoppingEmptyState();
+  persistShoppingList();
 }
 
-function addShoppingItem(value) {
-  const categoryId = getShoppingCategory(value);
+function addShoppingItem(value, options = {}) {
+  const { categoryId = getShoppingCategory(value), checked = false, shouldPersist = true } = options;
   const categoryMeta = getCategoryMeta(categoryId);
   const groupList = ensureCategoryGroup(categoryId);
 
@@ -649,6 +676,7 @@ function addShoppingItem(value) {
     const isChecked = item.classList.toggle("is-checked");
     toggleBtn.setAttribute("aria-pressed", String(isChecked));
     refreshCategoryCount(groupList);
+    persistShoppingList();
   });
 
   const deleteBtn = document.createElement("button");
@@ -661,13 +689,21 @@ function addShoppingItem(value) {
     removeCategoryGroupIfEmpty(groupList);
     refreshCategoryCount(groupList);
     updateShoppingEmptyState();
+    persistShoppingList();
   });
 
   actions.append(toggleBtn, deleteBtn);
   item.append(label, categoryButton, actions);
   groupList.append(item);
+  if (checked) {
+    item.classList.add("is-checked");
+    toggleBtn.setAttribute("aria-pressed", "true");
+  }
   refreshCategoryCount(groupList);
   updateShoppingEmptyState();
+  if (shouldPersist) {
+    persistShoppingList();
+  }
 }
 
 function initShoppingList() {
@@ -690,6 +726,7 @@ function initShoppingList() {
         refreshCategoryCount(list);
       });
       updateShoppingEmptyState();
+      persistShoppingList();
     });
   }
   if (collapseAllBtn) {
@@ -708,6 +745,18 @@ function initShoppingList() {
         persistCategoryCollapse(categoryId, shouldCollapse);
       });
       collapseAllBtn.textContent = hasExpanded ? "Expandir todo" : "Colapsar todo";
+    });
+  }
+  const storedItems = loadShoppingItems();
+  if (storedItems.length) {
+    storedItems.forEach((item) => {
+      if (item?.label) {
+        addShoppingItem(item.label, {
+          categoryId: item.categoryId,
+          checked: item.checked,
+          shouldPersist: false
+        });
+      }
     });
   }
   updateShoppingEmptyState();
@@ -752,7 +801,9 @@ function applyTheme(theme) {
 function initThemeToggle() {
   if (!themeToggle) return;
   const storedTheme = localStorage.getItem("theme");
-  applyTheme(storedTheme === "dark" ? "dark" : "light");
+  const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  const initialTheme = storedTheme ? storedTheme : prefersDark ? "dark" : "light";
+  applyTheme(initialTheme);
   themeToggle.addEventListener("click", () => {
     const isDark = document.body.getAttribute("data-theme") === "dark";
     const nextTheme = isDark ? "light" : "dark";
