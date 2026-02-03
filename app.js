@@ -194,7 +194,9 @@ function buildCalendar() {
   }
 
   updateRangeLabels();
-  attachListeners();
+  if (state.userId) {
+    attachListeners();
+  }
 }
 
 function updateRangeLabels() {
@@ -332,9 +334,8 @@ onAuthStateChanged(auth, (user) => {
     return;
   }
   state.userId = user.uid;
-  updateStatus();
+  initCalendar();
 });
 
 setCalendarId(getStoredCalendarId());
-initCalendar();
 updateStatus();
