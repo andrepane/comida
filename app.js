@@ -37,6 +37,8 @@ const shoppingInput = document.getElementById("shoppingInput");
 const shoppingList = document.getElementById("shoppingList");
 const viewButtons = document.querySelectorAll(".switch-btn");
 const viewPanels = document.querySelectorAll(".view-panel");
+const statusBadge = document.querySelector(".status-badge");
+const themeToggle = document.getElementById("themeToggle");
 
 const SHARED_CALENDAR_ID = "calendario-compartido";
 
@@ -57,6 +59,7 @@ const state = {
   userId: null,
   unsubscribes: new Map(),
   timers: new Map(),
+  flashTimers: new Map(),
   dayElements: new Map(),
   pendingSaves: 0,
   inFlight: 0
@@ -83,15 +86,29 @@ function formatDayName(date) {
 }
 
 function updateStatus() {
+  if (!state.userId) {
+    syncStatus.textContent = "Preparando…";
+    setStatusBadge("is-preparing");
+    return;
+  }
   if (!navigator.onLine) {
     syncStatus.textContent = "Sin conexión";
+    setStatusBadge("is-offline");
     return;
   }
   if (state.pendingSaves > 0 || state.inFlight > 0) {
     syncStatus.textContent = "Guardando…";
+    setStatusBadge("is-saving");
   } else {
     syncStatus.textContent = "Guardado";
+    setStatusBadge("is-saved");
   }
+}
+
+function setStatusBadge(statusClass) {
+  if (!statusBadge) return;
+  statusBadge.classList.remove("is-preparing", "is-saving", "is-saved", "is-offline");
+  statusBadge.classList.add(statusClass);
 }
 
 function handleConnectivity() {
@@ -106,6 +123,8 @@ function resetListeners() {
 function resetTimers() {
   state.timers.forEach((timer) => clearTimeout(timer));
   state.timers.clear();
+  state.flashTimers.forEach((timer) => clearTimeout(timer));
+  state.flashTimers.clear();
   state.pendingSaves = 0;
   state.inFlight = 0;
 }
@@ -206,6 +225,10 @@ function attachListeners() {
 function updateInputs(dateId, lunchValue, dinnerValue) {
   const elements = state.dayElements.get(dateId);
   if (!elements) return;
+  const card = elements.lunchInput.closest(".day-card");
+  const shouldFlash =
+    (document.activeElement !== elements.lunchInput && lunchValue !== elements.lunchInput.value) ||
+    (document.activeElement !== elements.dinnerInput && dinnerValue !== elements.dinnerInput.value);
 
   if (document.activeElement !== elements.lunchInput) {
     elements.lunchInput.value = lunchValue;
@@ -213,6 +236,25 @@ function updateInputs(dateId, lunchValue, dinnerValue) {
   if (document.activeElement !== elements.dinnerInput) {
     elements.dinnerInput.value = dinnerValue;
   }
+
+  if (card && shouldFlash) {
+    triggerFlash(card, dateId);
+  }
+}
+
+function triggerFlash(card, dateId) {
+  if (state.flashTimers.has(dateId)) {
+    clearTimeout(state.flashTimers.get(dateId));
+  }
+  card.classList.remove("is-flash");
+  requestAnimationFrame(() => {
+    card.classList.add("is-flash");
+  });
+  const timer = setTimeout(() => {
+    card.classList.remove("is-flash");
+    state.flashTimers.delete(dateId);
+  }, 300);
+  state.flashTimers.set(dateId, timer);
 }
 
 function scheduleSave(dateId, immediate = false) {
@@ -345,6 +387,34 @@ function initViewSwitcher() {
   });
 }
 
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.body.setAttribute("data-theme", "dark");
+    if (themeToggle) {
+      themeToggle.textContent = "Modo claro";
+      themeToggle.setAttribute("aria-pressed", "true");
+    }
+  } else {
+    document.body.removeAttribute("data-theme");
+    if (themeToggle) {
+      themeToggle.textContent = "Modo oscuro";
+      themeToggle.setAttribute("aria-pressed", "false");
+    }
+  }
+}
+
+function initThemeToggle() {
+  if (!themeToggle) return;
+  const storedTheme = localStorage.getItem("theme");
+  applyTheme(storedTheme === "dark" ? "dark" : "light");
+  themeToggle.addEventListener("click", () => {
+    const isDark = document.body.getAttribute("data-theme") === "dark";
+    const nextTheme = isDark ? "light" : "dark";
+    localStorage.setItem("theme", nextTheme);
+    applyTheme(nextTheme);
+  });
+}
+
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
 todayBtn.addEventListener("click", jumpToToday);
@@ -366,3 +436,4 @@ onAuthStateChanged(auth, (user) => {
 updateStatus();
 initShoppingList();
 initViewSwitcher();
+initThemeToggle();
