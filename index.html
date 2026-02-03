@@ -28,38 +28,48 @@
     <span id="syncStatus">Preparando…</span>
   </section>
 
-  <main class="calendar-wrapper">
-    <div class="calendar-controls">
-      <button class="btn" id="prevWeek" type="button">Semana anterior</button>
-      <div class="range">
-        <div class="range-title" id="rangeTitle">—</div>
-        <div class="range-sub" id="rangeSubtitle">—</div>
-      </div>
-      <button class="btn" id="today" type="button">Hoy</button>
-      <button class="btn" id="nextWeek" type="button">Semana siguiente</button>
-    </div>
-
-    <div class="calendar-grid" id="calendarGrid" aria-live="polite"></div>
-  </main>
-
-  <section class="shopping" aria-labelledby="shoppingTitle">
-    <div class="shopping-card">
-      <header>
+  <main class="page-content">
+    <section class="calendar-section" aria-labelledby="calendarTitle">
+      <header class="section-header">
         <div>
-          <h2 id="shoppingTitle">Compra</h2>
-          <p>Crea tu lista de la compra y añade lo que necesites.</p>
+          <h2 id="calendarTitle">Calendario</h2>
+          <p>Organiza las comidas y cenas de las próximas dos semanas.</p>
         </div>
       </header>
-      <form class="shopping-form" id="shoppingForm">
-        <label class="field">
-          <span>Nuevo elemento</span>
-          <input id="shoppingInput" type="text" placeholder="Ej: Tomates" />
-        </label>
-        <button class="btn secondary" type="submit">Añadir</button>
-      </form>
-      <ul class="shopping-list" id="shoppingList" aria-live="polite"></ul>
-    </div>
-  </section>
+      <div class="calendar-wrapper">
+        <div class="calendar-controls">
+          <button class="btn" id="prevWeek" type="button">Semana anterior</button>
+          <div class="range">
+            <div class="range-title" id="rangeTitle">—</div>
+            <div class="range-sub" id="rangeSubtitle">—</div>
+          </div>
+          <button class="btn" id="today" type="button">Hoy</button>
+          <button class="btn" id="nextWeek" type="button">Semana siguiente</button>
+        </div>
+
+        <div class="calendar-grid" id="calendarGrid" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="shopping" aria-labelledby="shoppingTitle">
+      <div class="shopping-card">
+        <header>
+          <div>
+            <h2 id="shoppingTitle">Compra</h2>
+            <p>Crea tu lista de la compra y añade lo que necesites.</p>
+          </div>
+        </header>
+        <form class="shopping-form" id="shoppingForm">
+          <label class="field">
+            <span>Nuevo elemento</span>
+            <input id="shoppingInput" type="text" placeholder="Ej: Tomates" />
+          </label>
+          <button class="btn secondary" type="submit">Añadir</button>
+        </form>
+        <ul class="shopping-list" id="shoppingList" aria-live="polite"></ul>
+      </div>
+    </section>
+  </main>
 
   <script type="module" src="app.js"></script>
 </body>
