@@ -46,6 +46,12 @@ const remoteNotice = document.getElementById("remoteNotice");
 const nextEmptyBtn = document.getElementById("nextEmpty");
 const clearCheckedBtn = document.getElementById("clearChecked");
 const collapseAllBtn = document.getElementById("collapseAllCategories");
+const recipesForm = document.getElementById("recipesForm");
+const recipesInput = document.getElementById("recipesInput");
+const recipesSubmit = document.getElementById("recipesSubmit");
+const recipesStatus = document.getElementById("recipesStatus");
+const recipesList = document.getElementById("recipesList");
+const recipesRaw = document.getElementById("recipesRaw");
 
 const SHARED_CALENDAR_ID = "calendario-compartido";
 const SHOPPING_CATEGORIES = [
@@ -921,6 +927,126 @@ function updateShoppingEmptyState() {
   shoppingEmpty.classList.toggle("is-visible", totalItems === 0);
 }
 
+function parseRecipeUrls(input) {
+  return input
+    .split(/[\n,]+/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => {
+      try {
+        return new URL(value).toString();
+      } catch (error) {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+function setRecipesStatus(message) {
+  if (!recipesStatus) return;
+  recipesStatus.textContent = message;
+}
+
+function clearRecipesResults() {
+  if (!recipesList || !recipesRaw) return;
+  recipesList.innerHTML = "";
+  recipesRaw.textContent = "";
+  recipesRaw.hidden = true;
+}
+
+function renderRecipeSuggestions(data) {
+  if (!recipesList || !recipesRaw) return;
+  clearRecipesResults();
+  const suggestions = Array.isArray(data?.suggestions)
+    ? data.suggestions
+    : Array.isArray(data?.recipes)
+      ? data.recipes
+      : Array.isArray(data)
+        ? data
+        : null;
+
+  if (suggestions && suggestions.length) {
+    setRecipesStatus(`Encontradas ${suggestions.length} sugerencias.`);
+    suggestions.forEach((item) => {
+      const url = typeof item === "string" ? item : item?.url || item?.link || "";
+      const title =
+        typeof item === "object" && item
+          ? item?.title || item?.name || "Receta sugerida"
+          : "Receta sugerida";
+      if (!url) return;
+      const entry = document.createElement("li");
+      entry.className = "recipes-item";
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.textContent = title;
+      const caption = document.createElement("span");
+      caption.textContent = url;
+      entry.append(link, caption);
+      recipesList.append(entry);
+    });
+    if (!recipesList.children.length) {
+      setRecipesStatus("La respuesta no incluyó URLs válidas.");
+      recipesRaw.textContent = JSON.stringify(data, null, 2);
+      recipesRaw.hidden = false;
+    }
+    return;
+  }
+
+  setRecipesStatus("No se encontraron sugerencias en la respuesta.");
+  recipesRaw.textContent = JSON.stringify(data, null, 2);
+  recipesRaw.hidden = false;
+}
+
+async function fetchRecipeSuggestions(recipes) {
+  const response = await fetch(
+    "https://magicloops.dev/api/loop/335074cf-1bd1-4466-acf2-c16b9111b97d/run",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipes
+      })
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Error al consultar sugerencias (${response.status}).`);
+  }
+  return response.json();
+}
+
+function initRecipes() {
+  if (!recipesForm || !recipesInput || !recipesSubmit) return;
+  const defaultLabel = recipesSubmit.textContent;
+  recipesForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const recipes = parseRecipeUrls(recipesInput.value);
+    if (!recipes.length) {
+      setRecipesStatus("Añade al menos una URL válida.");
+      clearRecipesResults();
+      return;
+    }
+    recipesSubmit.disabled = true;
+    recipesSubmit.textContent = "Buscando…";
+    setRecipesStatus("Buscando recetas parecidas…");
+    clearRecipesResults();
+    try {
+      const data = await fetchRecipeSuggestions(recipes);
+      renderRecipeSuggestions(data);
+    } catch (error) {
+      setRecipesStatus("No se pudo obtener sugerencias. Inténtalo de nuevo.");
+      if (recipesRaw) {
+        recipesRaw.textContent = error instanceof Error ? error.message : String(error);
+        recipesRaw.hidden = false;
+      }
+    } finally {
+      recipesSubmit.disabled = false;
+      recipesSubmit.textContent = defaultLabel;
+    }
+  });
+}
+
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
 todayBtn.addEventListener("click", jumpToToday);
@@ -946,3 +1072,4 @@ updateStatus();
 initShoppingList();
 initViewSwitcher();
 initThemeToggle();
+initRecipes();

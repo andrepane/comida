@@ -43,6 +43,9 @@
         <button class="btn switch-btn" type="button" data-view="shoppingView" aria-pressed="false">
           Lista de la compra
         </button>
+        <button class="btn switch-btn" type="button" data-view="recipesView" aria-pressed="false">
+          Recetas
+        </button>
       </nav>
 
       <section class="calendar-section view-panel is-active" id="calendarView" aria-labelledby="calendarTitle">
@@ -93,6 +96,34 @@
           </form>
           <p class="empty-state" id="shoppingEmpty">Tu lista está vacía. Añade lo básico para arrancar.</p>
           <ul class="shopping-list" id="shoppingList" aria-live="polite"></ul>
+        </div>
+      </section>
+
+      <section class="recipes view-panel" id="recipesView" aria-labelledby="recipesTitle">
+        <div class="recipes-card">
+          <header>
+            <div>
+              <h2 id="recipesTitle">Recetas</h2>
+              <p>Comparte URLs y descubre recetas parecidas para completar el menú.</p>
+            </div>
+          </header>
+          <form class="recipes-form" id="recipesForm">
+            <label class="field">
+              <span>URLs de recetas</span>
+              <textarea
+                id="recipesInput"
+                rows="4"
+                placeholder="https://example.com/receta1&#10;https://example.com/receta2"
+              ></textarea>
+            </label>
+            <button class="btn primary" type="submit" id="recipesSubmit">Sugerir recetas</button>
+          </form>
+          <p class="helper-text" id="recipesHelper">Separa las URLs con saltos de línea o comas.</p>
+          <div class="recipes-results">
+            <p class="recipes-status" id="recipesStatus">Añade al menos una URL para empezar.</p>
+            <ul class="recipes-list" id="recipesList" aria-live="polite"></ul>
+            <pre class="recipes-raw" id="recipesRaw" hidden></pre>
+          </div>
         </div>
       </section>
     </main>
