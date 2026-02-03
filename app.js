@@ -1,356 +1,340 @@
-const calendarGrid = document.getElementById("calendarGrid");
-const monthLabel = document.getElementById("monthLabel");
-const monthRange = document.getElementById("monthRange");
-const prevMonthBtn = document.getElementById("prevMonth");
-const nextMonthBtn = document.getElementById("nextMonth");
-const todayBtn = document.getElementById("todayBtn");
-const noteInput = document.getElementById("noteInput");
-const saveNoteBtn = document.getElementById("saveNote");
-const deleteNoteBtn = document.getElementById("deleteNote");
-const selectedDateLabel = document.getElementById("selectedDateLabel");
-const syncStatus = document.getElementById("syncStatus");
-const syncStatusDot = syncStatus.querySelector(".status-dot");
-const syncStatusText = syncStatus.querySelector(".status-text");
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInAnonymously
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  onSnapshot,
+  setDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const LOCAL_STORAGE_KEY = "shared_calendar_notes_v1";
-const CALENDAR_ID = window.CALENDAR_ID || "default";
-
-let state = {
-  currentMonth: new Date(),
-  selectedDate: new Date(),
-  notes: new Map(),
-  isSyncReady: false,
-  isFirebaseEnabled: false,
-  unsubscribe: null
+const firebaseConfig = {
+  apiKey: "AIzaSyCvxpyyTZvVYhXX8MrtJ1PORMMKMJHD18M",
+  authDomain: "comida-fbfbd.firebaseapp.com",
+  projectId: "comida-fbfbd",
+  storageBucket: "comida-fbfbd.firebasestorage.app",
+  messagingSenderId: "1074209619328",
+  appId: "1:1074209619328:web:02b030bdec0bc599579565"
 };
 
-let firestore = null;
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-init();
+const calendarGrid = document.getElementById("calendarGrid");
+const calendarCode = document.getElementById("calendarCode");
+const copyCodeBtn = document.getElementById("copyCode");
+const joinInput = document.getElementById("joinCode");
+const joinBtn = document.getElementById("joinBtn");
+const prevWeekBtn = document.getElementById("prevWeek");
+const nextWeekBtn = document.getElementById("nextWeek");
+const todayBtn = document.getElementById("today");
+const syncStatus = document.getElementById("syncStatus");
+const rangeTitle = document.getElementById("rangeTitle");
+const rangeSubtitle = document.getElementById("rangeSubtitle");
 
-function init() {
-  const storedNotes = loadLocalNotes();
-  Object.entries(storedNotes).forEach(([date, text]) => {
-    if (text) {
-      state.notes.set(date, text);
-    }
-  });
+const weekdayFormatter = new Intl.DateTimeFormat("es-ES", { weekday: "long" });
+const dateFormatter = new Intl.DateTimeFormat("es-ES", {
+  day: "2-digit",
+  month: "short"
+});
+const rangeFormatter = new Intl.DateTimeFormat("es-ES", {
+  day: "2-digit",
+  month: "long",
+  year: "numeric"
+});
 
-  initFirebase();
-  attachEvents();
-  render();
-  updateSelectedDate(state.selectedDate);
-  registerServiceWorker();
+const state = {
+  calendarId: null,
+  currentMonday: getMonday(new Date()),
+  userId: null,
+  unsubscribes: new Map(),
+  timers: new Map(),
+  dayElements: new Map(),
+  pendingSaves: 0,
+  inFlight: 0
+};
+
+function getMonday(date) {
+  const copy = new Date(date);
+  const day = (copy.getDay() + 6) % 7;
+  copy.setDate(copy.getDate() - day);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
 }
 
-function attachEvents() {
-  prevMonthBtn.addEventListener("click", () => shiftMonth(-1));
-  nextMonthBtn.addEventListener("click", () => shiftMonth(1));
-  todayBtn.addEventListener("click", () => {
-    state.currentMonth = new Date();
-    updateSelectedDate(new Date());
-    render();
-  });
-
-  saveNoteBtn.addEventListener("click", () => saveNote());
-  deleteNoteBtn.addEventListener("click", () => deleteNote());
-
-  noteInput.addEventListener("input", debounce(() => {
-    autoSaveNote();
-  }, 500));
-
-  window.addEventListener("online", () => updateSyncStatus());
-  window.addEventListener("offline", () => updateSyncStatus());
-}
-
-function initFirebase() {
-  if (!window.firebase || !window.FIREBASE_CONFIG) {
-    updateSyncStatus("Sin Firebase: usando almacenamiento local.");
-    return;
-  }
-
-  if (!firebase.apps.length) {
-    firebase.initializeApp(window.FIREBASE_CONFIG);
-  }
-
-  firebase.auth().signInAnonymously()
-    .then(() => {
-      firestore = firebase.firestore();
-      state.isFirebaseEnabled = true;
-      updateSyncStatus("Conectando a Firebase…");
-      subscribeToVisibleRange();
-    })
-    .catch(() => {
-      updateSyncStatus("No se pudo conectar con Firebase.");
-    });
-}
-
-function subscribeToVisibleRange() {
-  if (!firestore) return;
-  if (state.unsubscribe) {
-    state.unsubscribe();
-    state.unsubscribe = null;
-  }
-
-  const { startISO, endISO } = getGridRange(state.currentMonth);
-  const notesRef = firestore
-    .collection("calendars")
-    .doc(CALENDAR_ID)
-    .collection("notes");
-
-  state.unsubscribe = notesRef
-    .where("date", ">=", startISO)
-    .where("date", "<=", endISO)
-    .orderBy("date")
-    .onSnapshot((snapshot) => {
-      const incoming = new Map();
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data?.date && data?.text) {
-          incoming.set(data.date, data.text);
-        }
-      });
-      state.notes = mergeLocalAndRemote(incoming);
-      updateSyncStatus("Sincronizado en tiempo real.");
-      render();
-    }, () => {
-      updateSyncStatus("Error al escuchar cambios en Firebase.");
-    });
-}
-
-function mergeLocalAndRemote(remoteNotes) {
-  const local = loadLocalNotes();
-  Object.entries(local).forEach(([date, text]) => {
-    if (!remoteNotes.has(date) && text) {
-      remoteNotes.set(date, text);
-    }
-  });
-  return remoteNotes;
-}
-
-function render() {
-  renderHeader();
-  renderGrid();
-}
-
-function renderHeader() {
-  const formatter = new Intl.DateTimeFormat("es-ES", {
-    month: "long",
-    year: "numeric"
-  });
-  const monthName = formatter.format(state.currentMonth);
-  monthLabel.textContent = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-
-  const start = startOfMonth(state.currentMonth);
-  const end = endOfMonth(state.currentMonth);
-  monthRange.textContent = `${formatDateShort(start)} - ${formatDateShort(end)}`;
-}
-
-function renderGrid() {
-  calendarGrid.innerHTML = "";
-  const days = getCalendarDays(state.currentMonth);
-  days.forEach((date) => {
-    const iso = toISO(date);
-    const isOutside = date.getMonth() !== state.currentMonth.getMonth();
-    const isToday = isSameDay(date, new Date());
-    const isSelected = isSameDay(date, state.selectedDate);
-    const hasNote = state.notes.has(iso);
-
-    const dayEl = document.createElement("button");
-    dayEl.type = "button";
-    dayEl.className = "day";
-    if (isOutside) dayEl.classList.add("outside");
-    if (isToday) dayEl.classList.add("today");
-    if (isSelected) dayEl.classList.add("selected");
-    if (hasNote) dayEl.classList.add("has-note");
-
-    const numberEl = document.createElement("div");
-    numberEl.className = "day-number";
-    numberEl.textContent = date.getDate();
-
-    const noteEl = document.createElement("div");
-    noteEl.className = "note-preview";
-    noteEl.textContent = state.notes.get(iso) || "Sin nota";
-
-    dayEl.append(numberEl, noteEl);
-
-    if (hasNote) {
-      const indicator = document.createElement("span");
-      indicator.className = "note-indicator";
-      indicator.setAttribute("aria-label", "Nota guardada");
-      dayEl.appendChild(indicator);
-    }
-    dayEl.addEventListener("click", () => updateSelectedDate(date));
-    calendarGrid.appendChild(dayEl);
-  });
-}
-
-function updateSelectedDate(date) {
-  state.selectedDate = new Date(date);
-  const iso = toISO(state.selectedDate);
-  const formatter = new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric"
-  });
-  selectedDateLabel.textContent = capitalize(formatter.format(state.selectedDate));
-  noteInput.value = state.notes.get(iso) || "";
-  renderGrid();
-}
-
-function saveNote() {
-  const iso = toISO(state.selectedDate);
-  const text = noteInput.value.trim();
-  persistNote(iso, text);
-}
-
-function autoSaveNote() {
-  const iso = toISO(state.selectedDate);
-  const text = noteInput.value.trim();
-  persistNote(iso, text, true);
-}
-
-function deleteNote() {
-  const iso = toISO(state.selectedDate);
-  noteInput.value = "";
-  persistNote(iso, "");
-}
-
-function persistNote(iso, text, silent = false) {
-  if (text) {
-    state.notes.set(iso, text);
-  } else {
-    state.notes.delete(iso);
-  }
-
-  saveLocalNotes(Object.fromEntries(state.notes));
-
-  if (!silent) {
-    render();
-  }
-
-  if (state.isFirebaseEnabled) {
-    const docRef = firestore
-      .collection("calendars")
-      .doc(CALENDAR_ID)
-      .collection("notes")
-      .doc(iso);
-
-    if (text) {
-      docRef.set({
-        date: iso,
-        text,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    } else {
-      docRef.delete();
-    }
-  }
-}
-
-function shiftMonth(delta) {
-  const newDate = new Date(state.currentMonth);
-  newDate.setMonth(newDate.getMonth() + delta);
-  state.currentMonth = newDate;
-  render();
-  subscribeToVisibleRange();
-}
-
-function getCalendarDays(baseDate) {
-  const start = startOfCalendarGrid(baseDate);
-  const days = [];
-  for (let i = 0; i < 42; i += 1) {
-    const day = new Date(start);
-    day.setDate(start.getDate() + i);
-    days.push(day);
-  }
-  return days;
-}
-
-function startOfCalendarGrid(date) {
-  const start = startOfMonth(date);
-  const day = start.getDay() || 7;
-  start.setDate(start.getDate() - (day - 1));
-  return start;
-}
-
-function startOfMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function endOfMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
-}
-
-function getGridRange(date) {
-  const start = startOfCalendarGrid(date);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 41);
-  return { startISO: toISO(start), endISO: toISO(end) };
-}
-
-function toISO(date) {
+function formatDateId(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
-function formatDateShort(date) {
-  return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short" }).format(date);
+function formatDayName(date) {
+  const label = weekdayFormatter.format(date);
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function isSameDay(a, b) {
-  return a.toDateString() === b.toDateString();
-}
-
-function capitalize(text) {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function updateSyncStatus(message) {
-  if (message) {
-    syncStatusText.textContent = message;
-  }
+function updateStatus() {
   if (!navigator.onLine) {
-    syncStatusDot.style.background = "#f97316";
-    syncStatusText.textContent = "Sin conexión: guardando localmente.";
+    syncStatus.textContent = "Sin conexión";
     return;
   }
-
-  if (state.isFirebaseEnabled) {
-    syncStatusDot.style.background = "#22c55e";
+  if (state.pendingSaves > 0 || state.inFlight > 0) {
+    syncStatus.textContent = "Guardando…";
   } else {
-    syncStatusDot.style.background = "#facc15";
+    syncStatus.textContent = "Guardado";
   }
 }
 
-function loadLocalNotes() {
-  const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-  if (!raw) return {};
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return {};
+function handleConnectivity() {
+  updateStatus();
+}
+
+function generateCalendarId(length = 20) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const values = new Uint8Array(length);
+  crypto.getRandomValues(values);
+  return Array.from(values, (value) => chars[value % chars.length]).join("");
+}
+
+function getStoredCalendarId() {
+  const stored = localStorage.getItem("calendarId");
+  if (stored && stored.trim().length >= 16) {
+    return stored.trim();
   }
+  const newId = generateCalendarId();
+  localStorage.setItem("calendarId", newId);
+  return newId;
 }
 
-function saveLocalNotes(notes) {
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(notes));
+function setCalendarId(newId) {
+  state.calendarId = newId;
+  calendarCode.textContent = newId;
 }
 
-function debounce(callback, wait) {
-  let timeout;
-  return (...args) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => callback.apply(null, args), wait);
-  };
+function resetListeners() {
+  state.unsubscribes.forEach((unsubscribe) => unsubscribe());
+  state.unsubscribes.clear();
 }
 
-function registerServiceWorker() {
-  if (!(\"serviceWorker\" in navigator)) return;
-  window.addEventListener(\"load\", () => {
-    navigator.serviceWorker.register(\"sw.js\").catch(() => {});
+function resetTimers() {
+  state.timers.forEach((timer) => clearTimeout(timer));
+  state.timers.clear();
+  state.pendingSaves = 0;
+  state.inFlight = 0;
+}
+
+function buildCalendar() {
+  calendarGrid.innerHTML = "";
+  state.dayElements.clear();
+
+  for (let i = 0; i < 14; i += 1) {
+    const date = new Date(state.currentMonday);
+    date.setDate(state.currentMonday.getDate() + i);
+
+    const dateId = formatDateId(date);
+    const card = document.createElement("article");
+    card.className = "day-card";
+    card.dataset.dateId = dateId;
+
+    const header = document.createElement("header");
+    const title = document.createElement("div");
+    const dayName = document.createElement("h3");
+    dayName.textContent = formatDayName(date);
+    const dateLabel = document.createElement("div");
+    dateLabel.className = "date";
+    dateLabel.textContent = dateFormatter.format(date);
+    title.append(dayName, dateLabel);
+
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "btn ghost";
+    clearBtn.textContent = "Limpiar";
+    header.append(title, clearBtn);
+
+    const lunchField = document.createElement("div");
+    lunchField.className = "field";
+    const lunchLabel = document.createElement("label");
+    lunchLabel.textContent = "Comida";
+    const lunchInput = document.createElement("input");
+    lunchInput.type = "text";
+    lunchInput.placeholder = "Ej: Ensalada";
+    lunchField.append(lunchLabel, lunchInput);
+
+    const dinnerField = document.createElement("div");
+    dinnerField.className = "field";
+    const dinnerLabel = document.createElement("label");
+    dinnerLabel.textContent = "Cena";
+    const dinnerInput = document.createElement("input");
+    dinnerInput.type = "text";
+    dinnerInput.placeholder = "Ej: Pasta";
+    dinnerField.append(dinnerLabel, dinnerInput);
+
+    card.append(header, lunchField, dinnerField);
+    calendarGrid.append(card);
+
+    state.dayElements.set(dateId, {
+      lunchInput,
+      dinnerInput,
+      clearBtn
+    });
+
+    lunchInput.addEventListener("input", () => scheduleSave(dateId));
+    dinnerInput.addEventListener("input", () => scheduleSave(dateId));
+    clearBtn.addEventListener("click", () => {
+      lunchInput.value = "";
+      dinnerInput.value = "";
+      scheduleSave(dateId, true);
+    });
+  }
+
+  updateRangeLabels();
+  attachListeners();
+}
+
+function updateRangeLabels() {
+  const endDate = new Date(state.currentMonday);
+  endDate.setDate(state.currentMonday.getDate() + 13);
+  rangeTitle.textContent = `Desde ${rangeFormatter.format(state.currentMonday)}`;
+  rangeSubtitle.textContent = `Hasta ${rangeFormatter.format(endDate)}`;
+}
+
+function attachListeners() {
+  resetListeners();
+  state.dayElements.forEach((_elements, dateId) => {
+    const docRef = doc(db, "calendars", state.calendarId, "days", dateId);
+    const unsubscribe = onSnapshot(docRef, (snapshot) => {
+      const data = snapshot.data();
+      if (!data) {
+        updateInputs(dateId, "", "");
+        return;
+      }
+      updateInputs(dateId, data.lunch || "", data.dinner || "");
+    });
+    state.unsubscribes.set(dateId, unsubscribe);
   });
 }
+
+function updateInputs(dateId, lunchValue, dinnerValue) {
+  const elements = state.dayElements.get(dateId);
+  if (!elements) return;
+
+  if (document.activeElement !== elements.lunchInput) {
+    elements.lunchInput.value = lunchValue;
+  }
+  if (document.activeElement !== elements.dinnerInput) {
+    elements.dinnerInput.value = dinnerValue;
+  }
+}
+
+function scheduleSave(dateId, immediate = false) {
+  if (state.timers.has(dateId)) {
+    clearTimeout(state.timers.get(dateId));
+  } else {
+    state.pendingSaves += 1;
+  }
+  updateStatus();
+
+  const timer = setTimeout(() => {
+    state.timers.delete(dateId);
+    state.pendingSaves = Math.max(0, state.pendingSaves - 1);
+    saveDay(dateId);
+  }, immediate ? 0 : 500);
+
+  state.timers.set(dateId, timer);
+}
+
+async function saveDay(dateId) {
+  if (!state.userId || !state.calendarId) return;
+  const elements = state.dayElements.get(dateId);
+  if (!elements) return;
+
+  state.inFlight += 1;
+  updateStatus();
+  const docRef = doc(db, "calendars", state.calendarId, "days", dateId);
+
+  try {
+    await setDoc(
+      docRef,
+      {
+        lunch: elements.lunchInput.value.trim(),
+        dinner: elements.dinnerInput.value.trim(),
+        updatedAt: serverTimestamp(),
+        updatedBy: state.userId
+      },
+      { merge: true }
+    );
+  } finally {
+    state.inFlight = Math.max(0, state.inFlight - 1);
+    updateStatus();
+  }
+}
+
+function changeWeek(offset) {
+  const newDate = new Date(state.currentMonday);
+  newDate.setDate(state.currentMonday.getDate() + offset * 7);
+  state.currentMonday = getMonday(newDate);
+  buildCalendar();
+}
+
+function jumpToToday() {
+  state.currentMonday = getMonday(new Date());
+  buildCalendar();
+}
+
+function initCalendar() {
+  resetTimers();
+  buildCalendar();
+  updateStatus();
+}
+
+copyCodeBtn.addEventListener("click", async () => {
+  if (!state.calendarId) return;
+  try {
+    await navigator.clipboard.writeText(state.calendarId);
+    copyCodeBtn.textContent = "¡Copiado!";
+    setTimeout(() => {
+      copyCodeBtn.textContent = "Copiar código";
+    }, 1500);
+  } catch (error) {
+    copyCodeBtn.textContent = "No se pudo copiar";
+  }
+});
+
+joinBtn.addEventListener("click", () => {
+  const newCode = joinInput.value.trim();
+  if (newCode.length < 16) {
+    joinInput.focus();
+    return;
+  }
+  localStorage.setItem("calendarId", newCode);
+  setCalendarId(newCode);
+  initCalendar();
+});
+
+prevWeekBtn.addEventListener("click", () => changeWeek(-1));
+nextWeekBtn.addEventListener("click", () => changeWeek(1));
+todayBtn.addEventListener("click", jumpToToday);
+
+window.addEventListener("online", handleConnectivity);
+window.addEventListener("offline", handleConnectivity);
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    signInAnonymously(auth).catch(() => {
+      syncStatus.textContent = "No se pudo iniciar sesión";
+    });
+    return;
+  }
+  state.userId = user.uid;
+  updateStatus();
+});
+
+setCalendarId(getStoredCalendarId());
+initCalendar();
+updateStatus();

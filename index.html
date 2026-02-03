@@ -2,104 +2,53 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Calendario Compartido</title>
-  <meta name="description" content="Calendario con notas sincronizadas en tiempo real entre dispositivos." />
-  <meta name="theme-color" content="#3b82f6" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='36' fill='%233b82f6'/%3E%3Ctext x='50%25' y='54%25' font-size='90' text-anchor='middle' fill='white' font-family='Arial, sans-serif'%3E%F0%9F%97%93%EF%B8%8F%3C/text%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calendario de comidas</title>
+  <meta name="description" content="Calendario de comidas sincronizado en tiempo real con Firebase." />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="brand-icon">🗓️</div>
+      <span class="brand-icon" aria-hidden="true">🍽️</span>
       <div>
-        <h1>Calendario Compartido</h1>
-        <p>Notas sincronizadas al instante entre todos tus dispositivos.</p>
+        <h1>Calendario de comidas</h1>
+        <p>Planifica comida y cena para las próximas dos semanas.</p>
       </div>
     </div>
-    <div class="status" id="syncStatus">
-      <span class="status-dot" aria-hidden="true"></span>
-      <span class="status-text">Preparando sincronización…</span>
+
+    <div class="share">
+      <div class="share-code">
+        <span class="label">Código:</span>
+        <span class="code" id="calendarCode">—</span>
+        <button class="btn small" id="copyCode" type="button">Copiar código</button>
+      </div>
+      <div class="share-join">
+        <input id="joinCode" type="text" placeholder="Unirse con código" autocomplete="off" />
+        <button class="btn" id="joinBtn" type="button">Unirse</button>
+      </div>
     </div>
   </header>
 
-  <main class="layout">
-    <section class="calendar">
-      <div class="calendar-head">
-        <button class="btn" id="prevMonth">← Mes anterior</button>
-        <div class="month">
-          <div class="month-label" id="monthLabel">—</div>
-          <div class="month-sub" id="monthRange">—</div>
-        </div>
-        <button class="btn" id="nextMonth">Mes siguiente →</button>
+  <section class="status-bar">
+    <span class="status-dot" aria-hidden="true"></span>
+    <span id="syncStatus">Preparando…</span>
+  </section>
+
+  <main class="calendar-wrapper">
+    <div class="calendar-controls">
+      <button class="btn" id="prevWeek" type="button">Semana anterior</button>
+      <div class="range">
+        <div class="range-title" id="rangeTitle">—</div>
+        <div class="range-sub" id="rangeSubtitle">—</div>
       </div>
+      <button class="btn" id="today" type="button">Hoy</button>
+      <button class="btn" id="nextWeek" type="button">Semana siguiente</button>
+    </div>
 
-      <div class="calendar-weekdays" aria-hidden="true">
-        <span>Lun</span>
-        <span>Mar</span>
-        <span>Mié</span>
-        <span>Jue</span>
-        <span>Vie</span>
-        <span>Sáb</span>
-        <span>Dom</span>
-      </div>
-
-      <div class="calendar-grid" id="calendarGrid" aria-label="Calendario con notas"></div>
-    </section>
-
-    <aside class="note-panel">
-      <div class="note-head">
-        <div>
-          <div class="note-kicker">Nota del día</div>
-          <h2 id="selectedDateLabel">—</h2>
-        </div>
-        <button class="btn ghost" id="todayBtn">Ir a hoy</button>
-      </div>
-
-      <label class="note-label" for="noteInput">Escribe o edita tu nota</label>
-      <textarea id="noteInput" class="note-input" placeholder="Añade una nota para este día…"></textarea>
-
-      <div class="note-actions">
-        <button class="btn primary" id="saveNote">Guardar</button>
-        <button class="btn danger" id="deleteNote">Borrar nota</button>
-      </div>
-
-      <div class="sync-card">
-        <h3>Sincronización</h3>
-        <p>Para que se sincronice entre dispositivos necesitas un proyecto Firebase. Añade tu configuración y un ID compartido:</p>
-        <ol>
-          <li>Configura un proyecto en Firebase (Firestore).</li>
-          <li>Asigna <code>window.FIREBASE_CONFIG</code> y <code>window.CALENDAR_ID</code> antes de cargar <code>app.js</code>.</li>
-          <li>Abre la misma URL en todos los dispositivos.</li>
-        </ol>
-        <div class="code-block">
-          <pre>&lt;script&gt;
-window.FIREBASE_CONFIG = { /* tu config */ };
-window.CALENDAR_ID = "mi-calendario";
-&lt;/script&gt;</pre>
-        </div>
-      </div>
-    </aside>
+    <div class="calendar-grid" id="calendarGrid" aria-live="polite"></div>
   </main>
 
-  <script>
-    window.CALENDAR_ID = window.CALENDAR_ID || "default";
-    window.FIREBASE_CONFIG = {
-      apiKey: "AIzaSyCvxpyyTZvVYhXX8MrtJ1PORMMKMJHD18M",
-      authDomain: "comida-fbfbd.firebaseapp.com",
-      projectId: "comida-fbfbd",
-      storageBucket: "comida-fbfbd.firebasestorage.app",
-      messagingSenderId: "1074209619328",
-      appId: "1:1074209619328:web:02b030bdec0bc599579565"
-    };
-  </script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
