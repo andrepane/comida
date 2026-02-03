@@ -70,7 +70,7 @@ const categoryIcons = {
   hidratos: "fa-bread-slice",
   lacteos: "fa-cheese",
   despensa: "fa-jar",
-  bebidas: "fa-wine-glass",
+  bebidas: "fa-bottle-water",
   snacks: "fa-cookie-bite",
   limpieza: "fa-soap",
   otros: "fa-box",
