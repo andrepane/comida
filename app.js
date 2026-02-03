@@ -533,7 +533,7 @@ function getShoppingCategory(value) {
   if (includesAny(["pescado", "atun", "salmon", "merluza", "gamba", "gambas", "marisco"])) {
     return "pescado";
   }
-  if (includesAny(["manzana", "pera", "platano", "naranja", "fresa", "fruta", "verdura", "lechuga", "tomate", "zanahoria", "pepino", "brocoli", "cebolla"])) {
+  if (includesAny(["manzana", "pera", "platano", "naranja", "fresa", "fruta", "verdura", "lechuga", "tomate", "zanahoria", "pepino", "brocoli", "cebolla", "aguacate", "aguacates", "jengibre", "limón", "limones"])) {
     return "fruta-verdura";
   }
   if (includesAny(["pasta", "arroz", "pan", "patata", "patatas", "cereal", "harina", "avena", "quinoa"])) {
