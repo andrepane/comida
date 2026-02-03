@@ -11,6 +11,12 @@ import {
   setDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  prepareRecommender,
+  suggestRecipes,
+  translateTitleToSpanish,
+  translateIngredientsToSpanish
+} from "./modules/recommender.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCvxpyyTZvVYhXX8MrtJ1PORMMKMJHD18M",
@@ -46,6 +52,23 @@ const remoteNotice = document.getElementById("remoteNotice");
 const nextEmptyBtn = document.getElementById("nextEmpty");
 const clearCheckedBtn = document.getElementById("clearChecked");
 const collapseAllBtn = document.getElementById("collapseAllCategories");
+const recipesForm = document.getElementById("recipesForm");
+const recipesIngredientsInput = document.getElementById("recipesIngredients");
+const recipesResults = document.getElementById("recipesResults");
+const recipesEmpty = document.getElementById("recipesEmpty");
+const recipesStatus = document.getElementById("recipesStatus");
+const recipesMissing = document.getElementById("recipesMissing");
+const recipesMissingList = document.getElementById("recipesMissingList");
+const recipeDetail = document.getElementById("recipeDetail");
+const recipeDetailTitle = document.getElementById("recipeDetailTitle");
+const recipeDetailMeta = document.getElementById("recipeDetailMeta");
+const recipeDetailIngredients = document.getElementById("recipeDetailIngredients");
+const recipeDetailSteps = document.getElementById("recipeDetailSteps");
+const toggleRecipeInstructionsBtn = document.getElementById("toggleRecipeInstructions");
+const copyRecipeIngredientsBtn = document.getElementById("copyRecipeIngredients");
+const closeRecipeDetailBtn = document.getElementById("closeRecipeDetail");
+const recipeDetailInstructions = document.getElementById("recipeDetailInstructions");
+const recipeTagButtons = document.querySelectorAll(".tag");
 
 const SHARED_CALENDAR_ID = "calendario-compartido";
 const SHOPPING_CATEGORIES = [
@@ -86,7 +109,12 @@ const state = {
   inFlight: 0,
   lastError: null,
   remoteNoticeTimer: null,
-  seenDays: new Set()
+  seenDays: new Set(),
+  recipes: {
+    data: null,
+    tags: new Set(),
+    current: null
+  }
 };
 
 function getMonday(date) {
@@ -921,6 +949,178 @@ function updateShoppingEmptyState() {
   shoppingEmpty.classList.toggle("is-visible", totalItems === 0);
 }
 
+function setRecipesStatus(message, variant) {
+  if (!recipesStatus) return;
+  recipesStatus.textContent = message;
+  recipesStatus.classList.remove("is-warning", "is-muted");
+  if (variant) {
+    recipesStatus.classList.add(variant);
+  }
+}
+
+function renderMissingTranslations(missing) {
+  if (!recipesMissing || !recipesMissingList) return;
+  recipesMissingList.innerHTML = "";
+  if (!missing.length) {
+    recipesMissing.hidden = true;
+    return;
+  }
+  missing.forEach((term) => {
+    const item = document.createElement("li");
+    item.textContent = term;
+    recipesMissingList.appendChild(item);
+  });
+  recipesMissing.hidden = false;
+}
+
+function renderRecipeCards(results) {
+  if (!recipesResults || !recipesEmpty) return;
+  recipesResults.innerHTML = "";
+  if (!results.length) {
+    recipesEmpty.textContent = "No se encontraron recetas con esos ingredientes.";
+    recipesEmpty.classList.add("is-visible");
+    return;
+  }
+  recipesEmpty.classList.remove("is-visible");
+  results.forEach((entry) => {
+    const card = document.createElement("article");
+    card.className = "recipe-card";
+    const title = document.createElement("h3");
+    title.textContent = translateTitleToSpanish(entry.recipe.title);
+    const score = document.createElement("span");
+    score.className = "score-pill";
+    score.textContent = `Similitud ${Math.round(entry.score * 100)}%`;
+    const list = document.createElement("ul");
+    translateIngredientsToSpanish(entry.recipe.ingredients)
+      .slice(0, 5)
+      .forEach((ingredient) => {
+        const item = document.createElement("li");
+        item.textContent = ingredient;
+        list.appendChild(item);
+      });
+    const detailButton = document.createElement("button");
+    detailButton.type = "button";
+    detailButton.className = "btn secondary small";
+    detailButton.textContent = "Ver detalles";
+    detailButton.addEventListener("click", () => showRecipeDetail(entry));
+    card.append(title, score, list, detailButton);
+    recipesResults.appendChild(card);
+  });
+}
+
+function showRecipeDetail(entry) {
+  if (!recipeDetail) return;
+  state.recipes.current = entry;
+  const translatedTitle = translateTitleToSpanish(entry.recipe.title);
+  recipeDetailTitle.textContent = translatedTitle;
+  recipeDetailMeta.textContent = `Similitud ${Math.round(entry.score * 100)}%`;
+  recipeDetailIngredients.innerHTML = "";
+  translateIngredientsToSpanish(entry.recipe.ingredients).forEach((ingredient) => {
+    const item = document.createElement("li");
+    item.textContent = ingredient;
+    recipeDetailIngredients.appendChild(item);
+  });
+  if (entry.recipe.instructions) {
+    recipeDetailSteps.textContent = entry.recipe.instructions;
+    toggleRecipeInstructionsBtn.disabled = false;
+    toggleRecipeInstructionsBtn.textContent = "Ver pasos (EN)";
+    recipeDetailInstructions.classList.add("is-hidden");
+  } else {
+    recipeDetailSteps.textContent = "No hay instrucciones disponibles.";
+    toggleRecipeInstructionsBtn.disabled = true;
+    recipeDetailInstructions.classList.remove("is-hidden");
+  }
+  recipeDetail.hidden = false;
+}
+
+function initRecipeTags() {
+  if (!recipeTagButtons.length) return;
+  recipeTagButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const tag = button.dataset.tag;
+      if (!tag) return;
+      if (state.recipes.tags.has(tag)) {
+        state.recipes.tags.delete(tag);
+        button.classList.remove("is-active");
+        button.setAttribute("aria-pressed", "false");
+      } else {
+        state.recipes.tags.add(tag);
+        button.classList.add("is-active");
+        button.setAttribute("aria-pressed", "true");
+      }
+    });
+  });
+}
+
+async function initRecipes() {
+  if (!recipesForm || !recipesIngredientsInput) return;
+  setRecipesStatus("Cargando dataset…", "is-warning");
+  try {
+    const response = await fetch("./data/recipes_en.json");
+    if (!response.ok) throw new Error("No se pudo cargar el dataset.");
+    const recipes = await response.json();
+    state.recipes.data = prepareRecommender(recipes);
+    setRecipesStatus(`Dataset listo (${recipes.length} recetas)`);
+  } catch (error) {
+    setRecipesStatus("No se pudo cargar el dataset.", "is-warning");
+  }
+
+  initRecipeTags();
+
+  recipesForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!state.recipes.data) {
+      recipesEmpty.textContent = "El dataset aún no está disponible.";
+      recipesEmpty.classList.add("is-visible");
+      return;
+    }
+    const input = recipesIngredientsInput.value.trim();
+    if (!input) {
+      recipesEmpty.textContent = "Añade ingredientes para sugerir recetas.";
+      recipesEmpty.classList.add("is-visible");
+      return;
+    }
+    const { results, missing } = suggestRecipes(input, state.recipes.data);
+    renderMissingTranslations(missing);
+    renderRecipeCards(results);
+  });
+
+  if (closeRecipeDetailBtn) {
+    closeRecipeDetailBtn.addEventListener("click", () => {
+      recipeDetail.hidden = true;
+    });
+  }
+
+  if (toggleRecipeInstructionsBtn) {
+    toggleRecipeInstructionsBtn.addEventListener("click", () => {
+      recipeDetailInstructions.classList.toggle("is-hidden");
+      const isHidden = recipeDetailInstructions.classList.contains("is-hidden");
+      toggleRecipeInstructionsBtn.textContent = isHidden ? "Ver pasos (EN)" : "Ocultar pasos";
+    });
+  }
+
+  if (copyRecipeIngredientsBtn) {
+    copyRecipeIngredientsBtn.addEventListener("click", async () => {
+      if (!state.recipes.current) return;
+      const ingredients = translateIngredientsToSpanish(state.recipes.current.recipe.ingredients);
+      const text = ingredients.join(\", \");
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(text);
+          copyRecipeIngredientsBtn.textContent = \"Ingredientes copiados\";
+          setTimeout(() => {
+            copyRecipeIngredientsBtn.textContent = \"Copiar ingredientes a lista de la compra\";
+          }, 1500);
+          return;
+        } catch (error) {
+          // fallback below
+        }
+      }
+      alert(`Ingredientes: ${text}`);
+    });
+  }
+}
+
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
 todayBtn.addEventListener("click", jumpToToday);
@@ -944,5 +1144,6 @@ onAuthStateChanged(auth, (user) => {
 
 updateStatus();
 initShoppingList();
+initRecipes();
 initViewSwitcher();
 initThemeToggle();

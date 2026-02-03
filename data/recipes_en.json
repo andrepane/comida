@@ -1,0 +1,362 @@
+[
+  {
+    "id": "r001",
+    "title": "Chicken rice bowl",
+    "ingredients": ["chicken breast", "rice", "onion", "garlic", "olive oil", "salt", "pepper"],
+    "instructions": "Cook rice. Sauté onion and garlic, add chicken until done. Combine and season."
+  },
+  {
+    "id": "r002",
+    "title": "Turkey quinoa salad",
+    "ingredients": ["turkey", "quinoa", "tomato", "cucumber", "olive oil", "lemon"],
+    "instructions": "Cook quinoa. Toss with turkey, chopped vegetables, olive oil, and lemon juice."
+  },
+  {
+    "id": "r003",
+    "title": "Beef stir fry",
+    "ingredients": ["beef", "broccoli", "carrot", "soy sauce", "garlic", "olive oil"],
+    "instructions": "Stir fry beef with vegetables and garlic. Finish with soy sauce."
+  },
+  {
+    "id": "r004",
+    "title": "Salmon with lemon",
+    "ingredients": ["salmon", "lemon", "olive oil", "garlic", "salt", "pepper"],
+    "instructions": "Bake salmon with lemon, garlic, and olive oil until flaky."
+  },
+  {
+    "id": "r005",
+    "title": "Tuna pasta",
+    "ingredients": ["tuna", "pasta", "tomato sauce", "onion", "olive oil"],
+    "instructions": "Cook pasta. Warm tuna with onion and tomato sauce. Combine."
+  },
+  {
+    "id": "r006",
+    "title": "Vegetable soup",
+    "ingredients": ["carrot", "celery", "onion", "potato", "vegetable broth", "garlic"],
+    "instructions": "Simmer chopped vegetables in broth until tender."
+  },
+  {
+    "id": "r007",
+    "title": "Lentil stew",
+    "ingredients": ["lentil", "carrot", "onion", "tomato", "garlic", "vegetable broth"],
+    "instructions": "Cook lentils with vegetables and broth until thick."
+  },
+  {
+    "id": "r008",
+    "title": "Chickpea curry",
+    "ingredients": ["chickpea", "coconut milk", "curry", "onion", "garlic", "tomato"],
+    "instructions": "Sauté onion and garlic, add curry and chickpeas, simmer with coconut milk."
+  },
+  {
+    "id": "r009",
+    "title": "Spaghetti bolognese",
+    "ingredients": ["spaghetti", "beef", "tomato sauce", "onion", "garlic", "olive oil"],
+    "instructions": "Cook spaghetti. Simmer beef with onion, garlic, and tomato sauce."
+  },
+  {
+    "id": "r010",
+    "title": "Chicken fajitas",
+    "ingredients": ["chicken", "pepper", "onion", "tortilla", "olive oil", "cumin"],
+    "instructions": "Sauté chicken with peppers and onion. Serve in tortillas."
+  },
+  {
+    "id": "r011",
+    "title": "Veggie omelette",
+    "ingredients": ["egg", "spinach", "mushroom", "onion", "cheese"],
+    "instructions": "Cook vegetables, add beaten eggs, fold with cheese."
+  },
+  {
+    "id": "r012",
+    "title": "Shrimp fried rice",
+    "ingredients": ["shrimp", "rice", "egg", "peas", "soy sauce", "carrot"],
+    "instructions": "Stir fry shrimp and vegetables, add rice and soy sauce."
+  },
+  {
+    "id": "r013",
+    "title": "Mushroom risotto",
+    "ingredients": ["rice", "mushroom", "onion", "garlic", "parmesan", "vegetable broth"],
+    "instructions": "Cook rice slowly with broth, add mushrooms and parmesan."
+  },
+  {
+    "id": "r014",
+    "title": "Baked potatoes",
+    "ingredients": ["potato", "olive oil", "garlic", "rosemary", "salt"],
+    "instructions": "Roast potatoes with garlic, rosemary, and olive oil."
+  },
+  {
+    "id": "r015",
+    "title": "Greek salad",
+    "ingredients": ["tomato", "cucumber", "feta", "olive", "olive oil", "lemon"],
+    "instructions": "Combine vegetables with feta and olives. Dress with olive oil and lemon."
+  },
+  {
+    "id": "r016",
+    "title": "Chicken noodle soup",
+    "ingredients": ["chicken", "noodle", "carrot", "celery", "chicken broth", "onion"],
+    "instructions": "Simmer chicken and vegetables, add noodles until tender."
+  },
+  {
+    "id": "r017",
+    "title": "Spinach lasagna",
+    "ingredients": ["lasagna noodles", "spinach", "ricotta", "tomato sauce", "mozzarella"],
+    "instructions": "Layer noodles, spinach, cheeses, and sauce. Bake until bubbly."
+  },
+  {
+    "id": "r018",
+    "title": "Pork chops",
+    "ingredients": ["pork", "garlic", "olive oil", "rosemary", "pepper"],
+    "instructions": "Pan-sear pork chops with garlic and rosemary."
+  },
+  {
+    "id": "r019",
+    "title": "Fish tacos",
+    "ingredients": ["cod", "tortilla", "cabbage", "lime", "cilantro"],
+    "instructions": "Cook cod and assemble tacos with cabbage and lime."
+  },
+  {
+    "id": "r020",
+    "title": "Chicken pesto pasta",
+    "ingredients": ["chicken", "pasta", "pesto", "parmesan", "olive oil"],
+    "instructions": "Cook pasta and toss with pesto and chicken."
+  },
+  {
+    "id": "r021",
+    "title": "Turkey meatballs",
+    "ingredients": ["turkey", "breadcrumbs", "egg", "garlic", "tomato sauce"],
+    "instructions": "Mix turkey with breadcrumbs and egg, bake and serve with sauce."
+  },
+  {
+    "id": "r022",
+    "title": "Veggie couscous",
+    "ingredients": ["couscous", "zucchini", "pepper", "onion", "olive oil"],
+    "instructions": "Cook couscous and toss with sautéed vegetables."
+  },
+  {
+    "id": "r023",
+    "title": "Beef chili",
+    "ingredients": ["beef", "bean", "tomato", "onion", "chili", "cumin"],
+    "instructions": "Simmer beef with beans and spices until thick."
+  },
+  {
+    "id": "r024",
+    "title": "Pumpkin soup",
+    "ingredients": ["pumpkin", "onion", "garlic", "vegetable broth", "cream"],
+    "instructions": "Cook pumpkin with onion and broth, blend with cream."
+  },
+  {
+    "id": "r025",
+    "title": "Eggplant parmesan",
+    "ingredients": ["eggplant", "tomato sauce", "mozzarella", "parmesan", "olive oil"],
+    "instructions": "Layer roasted eggplant with sauce and cheeses, bake."
+  },
+  {
+    "id": "r026",
+    "title": "Stuffed peppers",
+    "ingredients": ["pepper", "rice", "beef", "onion", "tomato sauce"],
+    "instructions": "Stuff peppers with rice and beef, bake with sauce."
+  },
+  {
+    "id": "r027",
+    "title": "Cod with tomato sauce",
+    "ingredients": ["cod", "tomato sauce", "garlic", "olive oil", "parsley"],
+    "instructions": "Simmer cod in tomato sauce with garlic and parsley."
+  },
+  {
+    "id": "r028",
+    "title": "Broccoli cheddar soup",
+    "ingredients": ["broccoli", "cheddar", "onion", "milk", "garlic"],
+    "instructions": "Cook broccoli in milk with onion, blend and add cheddar."
+  },
+  {
+    "id": "r029",
+    "title": "Chicken caesar salad",
+    "ingredients": ["chicken", "lettuce", "parmesan", "croutons", "lemon"],
+    "instructions": "Toss lettuce with chicken, parmesan, and dressing."
+  },
+  {
+    "id": "r030",
+    "title": "Rice and beans",
+    "ingredients": ["rice", "bean", "onion", "garlic", "cumin"],
+    "instructions": "Cook rice and beans together with onion and cumin."
+  },
+  {
+    "id": "r031",
+    "title": "Quinoa avocado bowl",
+    "ingredients": ["quinoa", "avocado", "tomato", "corn", "lime"],
+    "instructions": "Assemble cooked quinoa with avocado, tomato, and corn."
+  },
+  {
+    "id": "r032",
+    "title": "Chicken stir fry",
+    "ingredients": ["chicken", "broccoli", "pepper", "soy sauce", "garlic"],
+    "instructions": "Stir fry chicken with vegetables and soy sauce."
+  },
+  {
+    "id": "r033",
+    "title": "Vegetable fried noodles",
+    "ingredients": ["noodle", "carrot", "pepper", "onion", "soy sauce"],
+    "instructions": "Stir fry noodles with vegetables and soy sauce."
+  },
+  {
+    "id": "r034",
+    "title": "Tuna sandwich",
+    "ingredients": ["tuna", "bread", "mayonnaise", "lettuce", "tomato"],
+    "instructions": "Mix tuna with mayonnaise and assemble in bread with vegetables."
+  },
+  {
+    "id": "r035",
+    "title": "Salmon quinoa",
+    "ingredients": ["salmon", "quinoa", "spinach", "lemon", "olive oil"],
+    "instructions": "Serve roasted salmon over quinoa and spinach."
+  },
+  {
+    "id": "r036",
+    "title": "Shrimp paella",
+    "ingredients": ["shrimp", "rice", "pepper", "onion", "garlic", "saffron"],
+    "instructions": "Cook rice with vegetables and shrimp, finish with saffron."
+  },
+  {
+    "id": "r037",
+    "title": "Lentil salad",
+    "ingredients": ["lentil", "tomato", "cucumber", "olive oil", "lemon"],
+    "instructions": "Toss cooked lentils with vegetables and lemon dressing."
+  },
+  {
+    "id": "r038",
+    "title": "Spanish tortilla",
+    "ingredients": ["potato", "egg", "onion", "olive oil", "salt"],
+    "instructions": "Cook potatoes and onion, add eggs and cook until set."
+  },
+  {
+    "id": "r039",
+    "title": "Beef tacos",
+    "ingredients": ["beef", "tortilla", "tomato", "onion", "cheddar"],
+    "instructions": "Cook beef with seasoning and assemble tacos."
+  },
+  {
+    "id": "r040",
+    "title": "Chicken curry",
+    "ingredients": ["chicken", "curry", "coconut milk", "onion", "garlic"],
+    "instructions": "Simmer chicken with curry spices and coconut milk."
+  },
+  {
+    "id": "r041",
+    "title": "Veggie burger",
+    "ingredients": ["bean", "oats", "onion", "garlic", "lettuce"],
+    "instructions": "Form patties with beans and oats, pan-sear and serve."
+  },
+  {
+    "id": "r042",
+    "title": "Tomato basil soup",
+    "ingredients": ["tomato", "basil", "onion", "garlic", "vegetable broth"],
+    "instructions": "Simmer tomatoes with herbs and blend until smooth."
+  },
+  {
+    "id": "r043",
+    "title": "Chicken sandwich",
+    "ingredients": ["chicken", "bread", "lettuce", "tomato", "mayonnaise"],
+    "instructions": "Assemble cooked chicken with bread and vegetables."
+  },
+  {
+    "id": "r044",
+    "title": "Ham and cheese omelette",
+    "ingredients": ["egg", "ham", "cheddar", "onion", "pepper"],
+    "instructions": "Cook eggs with ham and cheese until set."
+  },
+  {
+    "id": "r045",
+    "title": "Vegetable lasagna",
+    "ingredients": ["lasagna noodles", "zucchini", "eggplant", "tomato sauce", "mozzarella"],
+    "instructions": "Layer vegetables, noodles, and sauce, bake until bubbly."
+  },
+  {
+    "id": "r046",
+    "title": "Pork fried rice",
+    "ingredients": ["pork", "rice", "egg", "peas", "soy sauce"],
+    "instructions": "Stir fry pork with rice, peas, egg, and soy sauce."
+  },
+  {
+    "id": "r047",
+    "title": "Turkey chili",
+    "ingredients": ["turkey", "bean", "tomato", "onion", "chili"],
+    "instructions": "Simmer turkey with beans, tomatoes, and chili spice."
+  },
+  {
+    "id": "r048",
+    "title": "Mediterranean pasta salad",
+    "ingredients": ["pasta", "tomato", "cucumber", "olive", "feta", "olive oil"],
+    "instructions": "Toss cooked pasta with vegetables, feta, and olive oil."
+  },
+  {
+    "id": "r049",
+    "title": "Baked zucchini boats",
+    "ingredients": ["zucchini", "tomato", "cheddar", "garlic", "olive oil"],
+    "instructions": "Fill zucchini with tomato and cheese, bake until tender."
+  },
+  {
+    "id": "r050",
+    "title": "Mushroom chicken",
+    "ingredients": ["chicken", "mushroom", "cream", "garlic", "parsley"],
+    "instructions": "Cook chicken with mushrooms, cream, and parsley."
+  },
+  {
+    "id": "r051",
+    "title": "Chickpea salad",
+    "ingredients": ["chickpea", "tomato", "cucumber", "olive oil", "lemon"],
+    "instructions": "Mix chickpeas with vegetables and lemon dressing."
+  },
+  {
+    "id": "r052",
+    "title": "Spinach feta pie",
+    "ingredients": ["spinach", "feta", "onion", "egg", "dough"],
+    "instructions": "Combine spinach and feta, fill dough, and bake."
+  },
+  {
+    "id": "r053",
+    "title": "Beef stew",
+    "ingredients": ["beef", "potato", "carrot", "onion", "beef broth"],
+    "instructions": "Simmer beef with vegetables and broth until tender."
+  },
+  {
+    "id": "r054",
+    "title": "Garlic shrimp pasta",
+    "ingredients": ["shrimp", "pasta", "garlic", "olive oil", "lemon"],
+    "instructions": "Cook pasta and toss with garlic shrimp and lemon."
+  },
+  {
+    "id": "r055",
+    "title": "Chicken vegetable kebabs",
+    "ingredients": ["chicken", "pepper", "zucchini", "onion", "olive oil"],
+    "instructions": "Thread chicken and vegetables on skewers and grill."
+  },
+  {
+    "id": "r056",
+    "title": "Cod with potatoes",
+    "ingredients": ["cod", "potato", "onion", "olive oil", "parsley"],
+    "instructions": "Bake cod with potatoes and onion until tender."
+  },
+  {
+    "id": "r057",
+    "title": "Turkey wrap",
+    "ingredients": ["turkey", "tortilla", "lettuce", "tomato", "mayonnaise"],
+    "instructions": "Roll turkey with lettuce and tomato in a tortilla."
+  },
+  {
+    "id": "r058",
+    "title": "Veggie pizza",
+    "ingredients": ["dough", "tomato sauce", "mozzarella", "pepper", "onion"],
+    "instructions": "Top dough with sauce, cheese, and vegetables, bake."
+  },
+  {
+    "id": "r059",
+    "title": "Tofu stir fry",
+    "ingredients": ["tofu", "broccoli", "carrot", "soy sauce", "garlic"],
+    "instructions": "Stir fry tofu with vegetables and soy sauce."
+  },
+  {
+    "id": "r060",
+    "title": "Pasta primavera",
+    "ingredients": ["pasta", "zucchini", "carrot", "pepper", "olive oil"],
+    "instructions": "Cook pasta and toss with sautéed vegetables."
+  }
+]

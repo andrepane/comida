@@ -43,6 +43,9 @@
         <button class="btn switch-btn" type="button" data-view="shoppingView" aria-pressed="false">
           Lista de la compra
         </button>
+        <button class="btn switch-btn" type="button" data-view="recipesView" aria-pressed="false">
+          Recetas
+        </button>
       </nav>
 
       <section class="calendar-section view-panel is-active" id="calendarView" aria-labelledby="calendarTitle">
@@ -93,6 +96,79 @@
           </form>
           <p class="empty-state" id="shoppingEmpty">Tu lista está vacía. Añade lo básico para arrancar.</p>
           <ul class="shopping-list" id="shoppingList" aria-live="polite"></ul>
+        </div>
+      </section>
+
+      <section class="recipes view-panel" id="recipesView" aria-labelledby="recipesTitle">
+        <div class="recipes-card">
+          <header class="section-header">
+            <div>
+              <h2 id="recipesTitle">Recetas sugeridas</h2>
+              <p>Encuentra ideas basadas en los ingredientes que tienes.</p>
+            </div>
+            <div class="section-actions">
+              <span class="summary-pill is-warning" id="recipesStatus">Cargando dataset…</span>
+            </div>
+          </header>
+
+          <form class="recipes-form" id="recipesForm">
+            <label class="field">
+              <span>Ingredientes (en español)</span>
+              <input id="recipesIngredients" type="text" placeholder="pollo, arroz, cebolla…" />
+            </label>
+            <div class="recipes-tags">
+              <span class="field-label">Tags opcionales</span>
+              <div class="tag-list" role="list">
+                <button class="tag" type="button" data-tag="tupper" aria-pressed="false">Tupper</button>
+                <button class="tag" type="button" data-tag="congelable" aria-pressed="false">Congelable</button>
+                <button class="tag" type="button" data-tag="saludable" aria-pressed="false">Saludable</button>
+                <button class="tag" type="button" data-tag="thermomix" aria-pressed="false">Thermomix</button>
+              </div>
+            </div>
+            <button class="btn primary" type="submit">Sugerir</button>
+          </form>
+
+          <div class="recipes-feedback">
+            <div class="missing-list" id="recipesMissing" hidden>
+              <h3>Ingredientes sin traducción</h3>
+              <ul id="recipesMissingList"></ul>
+            </div>
+          </div>
+
+          <div class="recipes-layout">
+            <div class="recipes-results">
+              <p class="empty-state is-visible" id="recipesEmpty">
+                Introduce ingredientes y pulsa “Sugerir” para ver ideas.
+              </p>
+              <div class="recipes-grid" id="recipesResults"></div>
+            </div>
+
+            <aside class="recipe-detail" id="recipeDetail" hidden>
+              <header>
+                <div>
+                  <h3 id="recipeDetailTitle">—</h3>
+                  <p id="recipeDetailMeta"></p>
+                </div>
+                <button class="btn ghost small" type="button" id="closeRecipeDetail">Cerrar</button>
+              </header>
+              <div class="detail-body">
+                <h4>Ingredientes</h4>
+                <ul id="recipeDetailIngredients"></ul>
+                <div class="detail-actions">
+                  <button class="btn secondary" type="button" id="copyRecipeIngredients">
+                    Copiar ingredientes a lista de la compra
+                  </button>
+                  <button class="btn ghost small" type="button" id="toggleRecipeInstructions">
+                    Ver pasos (EN)
+                  </button>
+                </div>
+                <div class="recipe-instructions is-hidden" id="recipeDetailInstructions">
+                  <h4>Pasos (inglés)</h4>
+                  <p id="recipeDetailSteps"></p>
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       </section>
     </main>
