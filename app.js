@@ -63,6 +63,19 @@ const SHOPPING_CATEGORIES = [
   { id: "otros", label: "Otros" }
 ];
 
+const categoryIcons = {
+  carne: "fa-drumstick-bite",
+  pescado: "fa-fish",
+  "fruta-verdura": "fa-leaf",
+  hidratos: "fa-bread-slice",
+  lacteos: "fa-cheese",
+  despensa: "fa-can-food",
+  bebidas: "fa-wine-glass",
+  snacks: "fa-candy",
+  limpieza: "fa-soap",
+  otros: "fa-box"
+};
+
 const weekdayFormatter = new Intl.DateTimeFormat("es-ES", { weekday: "long" });
 const dateFormatter = new Intl.DateTimeFormat("es-ES", {
   day: "2-digit",
@@ -567,6 +580,13 @@ function getCategoryMeta(categoryId) {
   return SHOPPING_CATEGORIES.find((category) => category.id === categoryId) || SHOPPING_CATEGORIES.at(-1);
 }
 
+function getCategoryIconClass(categoryId) {
+  if (categoryId === "higiene") {
+    return categoryIcons.limpieza;
+  }
+  return categoryIcons[categoryId] ?? categoryIcons.otros;
+}
+
 function ensureCategoryGroup(categoryId) {
   const existing = shoppingList.querySelector(`.shopping-category[data-category="${categoryId}"]`);
   if (existing) return existing.querySelector(".shopping-category__list");
@@ -674,6 +694,10 @@ function updateShoppingItemCategory(item, nextCategoryId) {
   if (categoryLabel) {
     categoryLabel.textContent = categoryMeta.label;
   }
+  const icon = item.querySelector(".shopping-item__icon");
+  if (icon) {
+    icon.className = `fa-solid ${getCategoryIconClass(categoryMeta.id)} shopping-item__icon`;
+  }
 
   targetList.append(item);
   removeCategoryGroupIfEmpty(currentList);
@@ -694,7 +718,13 @@ function addShoppingItem(value, options = {}) {
 
   const label = document.createElement("span");
   label.className = "shopping-item__label";
+
+  const icon = document.createElement("i");
+  icon.className = `fa-solid ${getCategoryIconClass(categoryMeta.id)} shopping-item__icon`;
+  icon.setAttribute("aria-hidden", "true");
+
   label.textContent = value;
+  label.prepend(icon);
 
   const categoryButton = document.createElement("label");
   categoryButton.className = "shopping-item__category";
