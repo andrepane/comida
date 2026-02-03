@@ -435,6 +435,51 @@ body[data-theme="dark"] .field input {
   gap: 10px;
 }
 
+.shopping-category {
+  list-style: none;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(248, 250, 252, 0.6);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+body[data-theme="dark"] .shopping-category {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.shopping-category__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 700;
+}
+
+.shopping-category__title {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.shopping-category__accent {
+  width: 46px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--category-accent, var(--primary));
+}
+
+.shopping-category__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .shopping-item {
   padding: 14px 16px;
   border-radius: var(--radius-sm);
@@ -461,6 +506,23 @@ body[data-theme="dark"] .shopping-item {
 .shopping-item__label {
   flex: 1;
   word-break: break-word;
+}
+
+.shopping-item__tag {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+body[data-theme="dark"] .shopping-item__tag {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: transparent;
 }
 
 .shopping-item__actions {
@@ -512,6 +574,76 @@ body[data-theme="dark"] .shopping-item.is-checked {
 .shopping-item.is-checked .shopping-action.check {
   background: rgba(34, 197, 94, 0.9);
   color: #ffffff;
+}
+
+.shopping-category[data-category="carne"] {
+  --category-accent: #f87171;
+}
+
+.shopping-category[data-category="pescado"] {
+  --category-accent: #38bdf8;
+}
+
+.shopping-category[data-category="fruta-verdura"] {
+  --category-accent: #4ade80;
+}
+
+.shopping-category[data-category="hidratos"] {
+  --category-accent: #fbbf24;
+}
+
+.shopping-category[data-category="lacteos"] {
+  --category-accent: #a5b4fc;
+}
+
+.shopping-category[data-category="despensa"] {
+  --category-accent: #f97316;
+}
+
+.shopping-category[data-category="otros"] {
+  --category-accent: #94a3b8;
+}
+
+.shopping-item[data-category="carne"] .shopping-item__tag {
+  background: rgba(248, 113, 113, 0.18);
+  color: #b91c1c;
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.shopping-item[data-category="pescado"] .shopping-item__tag {
+  background: rgba(56, 189, 248, 0.18);
+  color: #0369a1;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.shopping-item[data-category="fruta-verdura"] .shopping-item__tag {
+  background: rgba(74, 222, 128, 0.18);
+  color: #166534;
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+.shopping-item[data-category="hidratos"] .shopping-item__tag {
+  background: rgba(251, 191, 36, 0.18);
+  color: #92400e;
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.shopping-item[data-category="lacteos"] .shopping-item__tag {
+  background: rgba(165, 180, 252, 0.24);
+  color: #3730a3;
+  border-color: rgba(165, 180, 252, 0.4);
+}
+
+.shopping-item[data-category="despensa"] .shopping-item__tag {
+  background: rgba(249, 115, 22, 0.18);
+  color: #9a3412;
+  border-color: rgba(249, 115, 22, 0.3);
+}
+
+.shopping-item[data-category="otros"] .shopping-item__tag {
+  background: rgba(148, 163, 184, 0.2);
+  color: #475569;
+  border-color: rgba(148, 163, 184, 0.3);
 }
 
 @media (min-width: 900px) {

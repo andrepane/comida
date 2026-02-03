@@ -41,6 +41,15 @@ const statusBadge = document.querySelector(".status-badge");
 const themeToggle = document.getElementById("themeToggle");
 
 const SHARED_CALENDAR_ID = "calendario-compartido";
+const SHOPPING_CATEGORIES = [
+  { id: "carne", label: "Carne" },
+  { id: "pescado", label: "Pescado" },
+  { id: "fruta-verdura", label: "Fruta y verdura" },
+  { id: "hidratos", label: "Hidratos" },
+  { id: "lacteos", label: "Lácteos" },
+  { id: "despensa", label: "Despensa" },
+  { id: "otros", label: "Otros" }
+];
 
 const weekdayFormatter = new Intl.DateTimeFormat("es-ES", { weekday: "long" });
 const dateFormatter = new Intl.DateTimeFormat("es-ES", {
@@ -318,13 +327,107 @@ function initCalendar() {
   updateStatus();
 }
 
+function normalizeText(value) {
+  return value.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
+
+function getShoppingCategory(value) {
+  const normalized = normalizeText(value);
+  const includesAny = (keywords) => keywords.some((keyword) => normalized.includes(keyword));
+
+  if (includesAny(["carne", "pollo", "ternera", "cerdo", "pavo", "chuleta", "hamburguesa", "jamon"])) {
+    return "carne";
+  }
+  if (includesAny(["pescado", "atun", "salmon", "merluza", "gamba", "gambas", "marisco"])) {
+    return "pescado";
+  }
+  if (includesAny(["manzana", "pera", "platano", "naranja", "fresa", "fruta", "verdura", "lechuga", "tomate", "zanahoria", "pepino", "brocoli", "cebolla"])) {
+    return "fruta-verdura";
+  }
+  if (includesAny(["pasta", "arroz", "pan", "patata", "patatas", "cereal", "harina", "avena", "quinoa"])) {
+    return "hidratos";
+  }
+  if (includesAny(["leche", "yogur", "yogurt", "queso", "mantequilla", "nata"])) {
+    return "lacteos";
+  }
+  if (includesAny(["legumbre", "lenteja", "garbanzo", "judia", "conserva", "aceite", "especia", "sal", "azucar", "vinagre"])) {
+    return "despensa";
+  }
+  return "otros";
+}
+
+function getCategoryMeta(categoryId) {
+  return SHOPPING_CATEGORIES.find((category) => category.id === categoryId) || SHOPPING_CATEGORIES.at(-1);
+}
+
+function ensureCategoryGroup(categoryId) {
+  const existing = shoppingList.querySelector(`.shopping-category[data-category="${categoryId}"]`);
+  if (existing) return existing.querySelector(".shopping-category__list");
+
+  const categoryMeta = getCategoryMeta(categoryId);
+  const group = document.createElement("li");
+  group.className = "shopping-category";
+  group.dataset.category = categoryMeta.id;
+
+  const header = document.createElement("div");
+  header.className = "shopping-category__header";
+
+  const title = document.createElement("span");
+  title.className = "shopping-category__title";
+  title.textContent = categoryMeta.label;
+
+  const accent = document.createElement("span");
+  accent.className = "shopping-category__accent";
+  accent.setAttribute("aria-hidden", "true");
+
+  header.append(title, accent);
+
+  const list = document.createElement("ul");
+  list.className = "shopping-category__list";
+
+  group.append(header, list);
+
+  const categoryIndex = SHOPPING_CATEGORIES.findIndex((category) => category.id === categoryMeta.id);
+  const groups = Array.from(shoppingList.querySelectorAll(".shopping-category"));
+  const insertBefore = groups.find((element) => {
+    const elementIndex = SHOPPING_CATEGORIES.findIndex(
+      (category) => category.id === element.dataset.category
+    );
+    return elementIndex > categoryIndex;
+  });
+
+  if (insertBefore) {
+    shoppingList.insertBefore(group, insertBefore);
+  } else {
+    shoppingList.append(group);
+  }
+
+  return list;
+}
+
+function removeCategoryGroupIfEmpty(listElement) {
+  if (!listElement) return;
+  if (listElement.children.length > 0) return;
+  const group = listElement.closest(".shopping-category");
+  if (group) group.remove();
+}
+
 function addShoppingItem(value) {
+  const categoryId = getShoppingCategory(value);
+  const categoryMeta = getCategoryMeta(categoryId);
+  const groupList = ensureCategoryGroup(categoryId);
+
   const item = document.createElement("li");
   item.className = "shopping-item";
+  item.dataset.category = categoryMeta.id;
 
   const label = document.createElement("span");
   label.className = "shopping-item__label";
   label.textContent = value;
+
+  const tag = document.createElement("span");
+  tag.className = "shopping-item__tag";
+  tag.textContent = categoryMeta.label;
 
   const actions = document.createElement("div");
   actions.className = "shopping-item__actions";
@@ -348,11 +451,12 @@ function addShoppingItem(value) {
   deleteBtn.textContent = "✕";
   deleteBtn.addEventListener("click", () => {
     item.remove();
+    removeCategoryGroupIfEmpty(groupList);
   });
 
   actions.append(toggleBtn, deleteBtn);
-  item.append(label, actions);
-  shoppingList.append(item);
+  item.append(label, tag, actions);
+  groupList.append(item);
 }
 
 function initShoppingList() {
