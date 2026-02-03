@@ -157,6 +157,13 @@ body {
   font-size: 0.95rem;
 }
 
+.day-weekday {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
 .note-preview {
   font-size: 0.85rem;
   color: #475569;
@@ -215,6 +222,16 @@ body {
   padding: 1rem;
   font-size: 1rem;
   background: #f8fafc;
+}
+
+.note-date {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 .note-actions {

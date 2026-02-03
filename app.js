@@ -5,6 +5,7 @@ const prevMonthBtn = document.getElementById("prevMonth");
 const nextMonthBtn = document.getElementById("nextMonth");
 const todayBtn = document.getElementById("todayBtn");
 const noteInput = document.getElementById("noteInput");
+const noteDateInput = document.getElementById("noteDate");
 const saveNoteBtn = document.getElementById("saveNote");
 const deleteNoteBtn = document.getElementById("deleteNote");
 const selectedDateLabel = document.getElementById("selectedDateLabel");
@@ -50,6 +51,7 @@ function attachEvents() {
     state.currentMonth = new Date();
     updateSelectedDate(new Date());
     render();
+    subscribeToVisibleRange();
   });
 
   saveNoteBtn.addEventListener("click", () => saveNote());
@@ -58,6 +60,16 @@ function attachEvents() {
   noteInput.addEventListener("input", debounce(() => {
     autoSaveNote();
   }, 500));
+
+  noteDateInput.addEventListener("change", (event) => {
+    if (!event.target.value) return;
+    const selected = new Date(`${event.target.value}T00:00:00`);
+    if (Number.isNaN(selected.getTime())) return;
+    state.currentMonth = new Date(selected);
+    updateSelectedDate(selected);
+    render();
+    subscribeToVisibleRange();
+  });
 
   window.addEventListener("online", () => updateSyncStatus());
   window.addEventListener("offline", () => updateSyncStatus());
@@ -164,6 +176,10 @@ function renderGrid() {
     if (isSelected) dayEl.classList.add("selected");
     if (hasNote) dayEl.classList.add("has-note");
 
+    const weekdayEl = document.createElement("div");
+    weekdayEl.className = "day-weekday";
+    weekdayEl.textContent = formatWeekday(date);
+
     const numberEl = document.createElement("div");
     numberEl.className = "day-number";
     numberEl.textContent = date.getDate();
@@ -172,7 +188,7 @@ function renderGrid() {
     noteEl.className = "note-preview";
     noteEl.textContent = state.notes.get(iso) || "Sin nota";
 
-    dayEl.append(numberEl, noteEl);
+    dayEl.append(weekdayEl, numberEl, noteEl);
 
     if (hasNote) {
       const indicator = document.createElement("span");
@@ -195,6 +211,7 @@ function updateSelectedDate(date) {
     year: "numeric"
   });
   selectedDateLabel.textContent = capitalize(formatter.format(state.selectedDate));
+  noteDateInput.value = iso;
   noteInput.value = state.notes.get(iso) || "";
   renderGrid();
 }
@@ -299,6 +316,11 @@ function toISO(date) {
 
 function formatDateShort(date) {
   return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short" }).format(date);
+}
+
+function formatWeekday(date) {
+  const weekday = new Intl.DateTimeFormat("es-ES", { weekday: "short" }).format(date);
+  return capitalize(weekday.replace(".", ""));
 }
 
 function isSameDay(a, b) {
