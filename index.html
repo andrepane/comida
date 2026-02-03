@@ -25,9 +25,12 @@
         <button class="theme-toggle" type="button" id="themeToggle" aria-pressed="false">
           Modo oscuro
         </button>
-        <div class="status-badge is-preparing">
-          <span class="status-dot" aria-hidden="true"></span>
-          <span id="syncStatus">Preparando…</span>
+        <div class="status-stack">
+          <div class="status-badge is-preparing">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="syncStatus">Preparando…</span>
+          </div>
+          <p class="sync-hint" id="syncHint" role="status" aria-live="polite"></p>
         </div>
       </div>
     </header>
@@ -46,7 +49,11 @@
         <header class="section-header">
           <div>
             <h2 id="calendarTitle">Calendario</h2>
-            <p>Organiza las comidas y cenas de las próximas dos semanas.</p>
+            <p>Organiza las comidas y cenas con claridad semana a semana.</p>
+          </div>
+          <div class="section-actions">
+            <span class="summary-pill" id="emptyDaysPill">—</span>
+            <span class="summary-pill is-muted" id="remoteNotice" aria-live="polite" role="status"></span>
           </div>
         </header>
         <div class="calendar-wrapper">
@@ -56,6 +63,7 @@
               <div class="range-title" id="rangeTitle">—</div>
               <div class="range-sub" id="rangeSubtitle">—</div>
             </div>
+            <button class="btn ghost small" id="nextEmpty" type="button">Primer hueco</button>
             <button class="btn primary" id="today" type="button">Hoy</button>
             <button class="btn secondary" id="nextWeek" type="button">Semana siguiente</button>
           </div>
@@ -69,16 +77,21 @@
           <header>
             <div>
               <h2 id="shoppingTitle">Compra</h2>
-              <p>Crea tu lista de la compra y añade lo que necesites.</p>
+              <p>Categoriza y comparte la compra con menos esfuerzo.</p>
+            </div>
+            <div class="shopping-actions">
+              <button class="btn ghost small" id="collapseAllCategories" type="button">Colapsar todo</button>
+              <button class="btn ghost small" id="clearChecked" type="button">Vaciar comprados</button>
             </div>
           </header>
           <form class="shopping-form" id="shoppingForm">
             <label class="field">
               <span>Nuevo elemento</span>
-              <input id="shoppingInput" type="text" placeholder="Ej: Tomates" />
+              <input id="shoppingInput" type="text" placeholder="Ej: Tomates, papel, café..." />
             </label>
             <button class="btn secondary" type="submit">Añadir</button>
           </form>
+          <p class="empty-state" id="shoppingEmpty">Tu lista está vacía. Añade lo básico para arrancar.</p>
           <ul class="shopping-list" id="shoppingList" aria-live="polite"></ul>
         </div>
       </section>
