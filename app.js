@@ -105,7 +105,8 @@ const state = {
   inFlight: 0,
   lastError: null,
   remoteNoticeTimer: null,
-  seenDays: new Set()
+  seenDays: new Set(),
+  syncDisabled: false
 };
 
 function getMonday(date) {
@@ -166,6 +167,27 @@ function updateStatus() {
     }
     setStatusBadge("is-saved");
   }
+}
+
+function handleFirestoreError(error) {
+  const code = error?.code || "";
+  if (code.includes("permission-denied")) {
+    state.syncDisabled = true;
+    state.lastError =
+      "Sin permisos para sincronizar. Revisa las reglas de Firestore o habilita el acceso anónimo.";
+    resetListeners();
+    if (state.customCategoriesUnsubscribe) {
+      state.customCategoriesUnsubscribe();
+      state.customCategoriesUnsubscribe = null;
+    }
+    if (state.shoppingItemsUnsubscribe) {
+      state.shoppingItemsUnsubscribe();
+      state.shoppingItemsUnsubscribe = null;
+    }
+  } else {
+    state.lastError = "No se pudo sincronizar con la nube.";
+  }
+  updateStatus();
 }
 
 function setStatusBadge(statusClass) {
@@ -299,21 +321,28 @@ function updateRangeLabels() {
 }
 
 function attachListeners() {
+  if (state.syncDisabled) return;
   resetListeners();
   state.dayElements.forEach((_elements, dateId) => {
     const docRef = doc(db, "calendars", state.calendarId, "days", dateId);
-    const unsubscribe = onSnapshot(docRef, (snapshot) => {
-      const data = snapshot.data();
-      if (!data) {
-        updateInputs(dateId, "", "");
-        return;
+    const unsubscribe = onSnapshot(
+      docRef,
+      (snapshot) => {
+        const data = snapshot.data();
+        if (!data) {
+          updateInputs(dateId, "", "");
+          return;
+        }
+        if (state.seenDays.has(dateId) && data.updatedBy && data.updatedBy !== state.userId) {
+          notifyRemoteChange(dateId);
+        }
+        state.seenDays.add(dateId);
+        updateInputs(dateId, data.lunch || "", data.dinner || "");
+      },
+      (error) => {
+        handleFirestoreError(error);
       }
-      if (state.seenDays.has(dateId) && data.updatedBy && data.updatedBy !== state.userId) {
-        notifyRemoteChange(dateId);
-      }
-      state.seenDays.add(dateId);
-      updateInputs(dateId, data.lunch || "", data.dinner || "");
-    });
+    );
     state.unsubscribes.set(dateId, unsubscribe);
   });
 }
@@ -373,7 +402,7 @@ function scheduleSave(dateId, immediate = false) {
 }
 
 async function saveDay(dateId) {
-  if (!state.userId || !state.calendarId) return;
+  if (!state.userId || !state.calendarId || state.syncDisabled) return;
   const elements = state.dayElements.get(dateId);
   if (!elements) return;
 
@@ -484,7 +513,7 @@ function persistShoppingList({ syncRemote = true } = {}) {
 }
 
 function scheduleShoppingItemsSave() {
-  if (!state.userId) return;
+  if (!state.userId || state.syncDisabled) return;
   if (state.shoppingItemsSaveTimer) {
     clearTimeout(state.shoppingItemsSaveTimer);
   }
@@ -495,7 +524,7 @@ function scheduleShoppingItemsSave() {
 }
 
 async function saveShoppingItemsRemote() {
-  if (!state.userId || !state.calendarId) return;
+  if (!state.userId || !state.calendarId || state.syncDisabled) return;
   const docRef = getShoppingItemsDocRef();
   const items = loadShoppingItems();
   try {
@@ -542,7 +571,7 @@ function setCustomCategory(value, categoryId) {
 }
 
 function scheduleCustomCategoriesSave() {
-  if (!state.userId) return;
+  if (!state.userId || state.syncDisabled) return;
   if (state.customCategoriesSaveTimer) {
     clearTimeout(state.customCategoriesSaveTimer);
   }
@@ -553,7 +582,7 @@ function scheduleCustomCategoriesSave() {
 }
 
 async function saveCustomCategoriesRemote() {
-  if (!state.userId || !state.calendarId) return;
+  if (!state.userId || !state.calendarId || state.syncDisabled) return;
   const docRef = getCustomCategoriesDocRef();
   try {
     await setDoc(
@@ -571,40 +600,52 @@ async function saveCustomCategoriesRemote() {
 }
 
 function initCustomCategoriesSync() {
-  if (!state.userId || !state.calendarId) return;
+  if (!state.userId || !state.calendarId || state.syncDisabled) return;
   if (state.customCategoriesUnsubscribe) {
     state.customCategoriesUnsubscribe();
   }
   const docRef = getCustomCategoriesDocRef();
-  state.customCategoriesUnsubscribe = onSnapshot(docRef, (snapshot) => {
-    const data = snapshot.data();
-    if (!data?.categories) {
-      if (Object.keys(state.customCategories).length) {
-        saveCustomCategoriesRemote();
+  state.customCategoriesUnsubscribe = onSnapshot(
+    docRef,
+    (snapshot) => {
+      const data = snapshot.data();
+      if (!data?.categories) {
+        if (Object.keys(state.customCategories).length) {
+          saveCustomCategoriesRemote();
+        }
+        return;
       }
-      return;
+      applyCustomCategories(data.categories);
+    },
+    (error) => {
+      handleFirestoreError(error);
     }
-    applyCustomCategories(data.categories);
-  });
+  );
 }
 
 function initShoppingItemsSync() {
-  if (!state.userId || !state.calendarId) return;
+  if (!state.userId || !state.calendarId || state.syncDisabled) return;
   if (state.shoppingItemsUnsubscribe) {
     state.shoppingItemsUnsubscribe();
   }
   const docRef = getShoppingItemsDocRef();
-  state.shoppingItemsUnsubscribe = onSnapshot(docRef, (snapshot) => {
-    const data = snapshot.data();
-    if (!data?.items) {
-      const localItems = loadShoppingItems();
-      if (localItems.length) {
-        saveShoppingItemsRemote();
+  state.shoppingItemsUnsubscribe = onSnapshot(
+    docRef,
+    (snapshot) => {
+      const data = snapshot.data();
+      if (!data?.items) {
+        const localItems = loadShoppingItems();
+        if (localItems.length) {
+          saveShoppingItemsRemote();
+        }
+        return;
       }
-      return;
+      replaceShoppingItems(data.items);
+    },
+    (error) => {
+      handleFirestoreError(error);
     }
-    replaceShoppingItems(data.items);
-  });
+  );
 }
 
 function getShoppingCategory(value) {
@@ -1095,7 +1136,8 @@ window.addEventListener("offline", handleConnectivity);
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     signInAnonymously(auth).catch(() => {
-      syncStatus.textContent = "No se pudo iniciar sesión";
+      state.lastError = "No se pudo iniciar sesión.";
+      updateStatus();
     });
     return;
   }
