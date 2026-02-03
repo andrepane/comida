@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Calendario de comidas</title>
+  <title>Tuppería</title>
   <meta name="description" content="Calendario de comidas sincronizado en tiempo real con Firebase." />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -12,7 +12,7 @@
     <div class="brand">
       <span class="brand-icon" aria-hidden="true">🍽️</span>
       <div>
-        <h1>Calendario de comidas</h1>
+        <h1>Tuppería</h1>
         <p>Planifica comida y cena para las próximas dos semanas.</p>
       </div>
     </div>
@@ -37,6 +37,25 @@
 
     <div class="calendar-grid" id="calendarGrid" aria-live="polite"></div>
   </main>
+
+  <section class="shopping" aria-labelledby="shoppingTitle">
+    <div class="shopping-card">
+      <header>
+        <div>
+          <h2 id="shoppingTitle">Compra</h2>
+          <p>Crea tu lista de la compra y añade lo que necesites.</p>
+        </div>
+      </header>
+      <form class="shopping-form" id="shoppingForm">
+        <label class="field">
+          <span>Nuevo elemento</span>
+          <input id="shoppingInput" type="text" placeholder="Ej: Tomates" />
+        </label>
+        <button class="btn secondary" type="submit">Añadir</button>
+      </form>
+      <ul class="shopping-list" id="shoppingList" aria-live="polite"></ul>
+    </div>
+  </section>
 
   <script type="module" src="app.js"></script>
 </body>

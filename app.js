@@ -32,6 +32,9 @@ const todayBtn = document.getElementById("today");
 const syncStatus = document.getElementById("syncStatus");
 const rangeTitle = document.getElementById("rangeTitle");
 const rangeSubtitle = document.getElementById("rangeSubtitle");
+const shoppingForm = document.getElementById("shoppingForm");
+const shoppingInput = document.getElementById("shoppingInput");
+const shoppingList = document.getElementById("shoppingList");
 
 const SHARED_CALENDAR_ID = "calendario-compartido";
 
@@ -271,6 +274,24 @@ function initCalendar() {
   updateStatus();
 }
 
+function addShoppingItem(value) {
+  const item = document.createElement("li");
+  item.textContent = value;
+  shoppingList.append(item);
+}
+
+function initShoppingList() {
+  if (!shoppingForm || !shoppingInput || !shoppingList) return;
+  shoppingForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const value = shoppingInput.value.trim();
+    if (!value) return;
+    addShoppingItem(value);
+    shoppingInput.value = "";
+    shoppingInput.focus();
+  });
+}
+
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
 todayBtn.addEventListener("click", jumpToToday);
@@ -290,3 +311,4 @@ onAuthStateChanged(auth, (user) => {
 });
 
 updateStatus();
+initShoppingList();
