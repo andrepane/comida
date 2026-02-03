@@ -98,6 +98,8 @@ const state = {
   customCategories: {},
   customCategoriesUnsubscribe: null,
   customCategoriesSaveTimer: null,
+  shoppingItemsUnsubscribe: null,
+  shoppingItemsSaveTimer: null,
   dayElements: new Map(),
   pendingSaves: 0,
   inFlight: 0,
@@ -425,6 +427,7 @@ function normalizeText(value) {
 const CUSTOM_CATEGORIES_KEY = "customCategories";
 const CUSTOM_CATEGORIES_DOC_ID = "customCategories";
 const SHOPPING_ITEMS_KEY = "shoppingItems";
+const SHOPPING_ITEMS_DOC_ID = "items";
 
 function loadCustomCategories() {
   try {
@@ -450,6 +453,10 @@ function getCustomCategoriesDocRef() {
   return doc(db, "calendars", state.calendarId, "shopping", CUSTOM_CATEGORIES_DOC_ID);
 }
 
+function getShoppingItemsDocRef() {
+  return doc(db, "calendars", state.calendarId, "shopping", SHOPPING_ITEMS_DOC_ID);
+}
+
 function loadShoppingItems() {
   try {
     const stored = localStorage.getItem(SHOPPING_ITEMS_KEY);
@@ -463,7 +470,7 @@ function saveShoppingItems(items) {
   localStorage.setItem(SHOPPING_ITEMS_KEY, JSON.stringify(items));
 }
 
-function persistShoppingList() {
+function persistShoppingList({ syncRemote = true } = {}) {
   if (!shoppingList) return;
   const items = Array.from(shoppingList.querySelectorAll(".shopping-item")).map((item) => ({
     label: item.querySelector(".shopping-item__label")?.textContent ?? "",
@@ -471,6 +478,55 @@ function persistShoppingList() {
     checked: item.classList.contains("is-checked")
   }));
   saveShoppingItems(items);
+  if (syncRemote) {
+    scheduleShoppingItemsSave();
+  }
+}
+
+function scheduleShoppingItemsSave() {
+  if (!state.userId) return;
+  if (state.shoppingItemsSaveTimer) {
+    clearTimeout(state.shoppingItemsSaveTimer);
+  }
+  state.shoppingItemsSaveTimer = setTimeout(() => {
+    state.shoppingItemsSaveTimer = null;
+    saveShoppingItemsRemote();
+  }, 400);
+}
+
+async function saveShoppingItemsRemote() {
+  if (!state.userId || !state.calendarId) return;
+  const docRef = getShoppingItemsDocRef();
+  const items = loadShoppingItems();
+  try {
+    await setDoc(
+      docRef,
+      {
+        items,
+        updatedAt: serverTimestamp(),
+        updatedBy: state.userId
+      },
+      { merge: true }
+    );
+  } catch {
+    // Silencioso: los cambios locales ya están guardados y se reintentarán.
+  }
+}
+
+function replaceShoppingItems(items) {
+  if (!shoppingList) return;
+  shoppingList.innerHTML = "";
+  items.forEach((item) => {
+    if (item?.label) {
+      addShoppingItem(item.label, {
+        categoryId: item.categoryId,
+        checked: item.checked,
+        shouldPersist: false
+      });
+    }
+  });
+  updateShoppingEmptyState();
+  persistShoppingList({ syncRemote: false });
 }
 
 function getCustomCategory(value) {
@@ -529,6 +585,25 @@ function initCustomCategoriesSync() {
       return;
     }
     applyCustomCategories(data.categories);
+  });
+}
+
+function initShoppingItemsSync() {
+  if (!state.userId || !state.calendarId) return;
+  if (state.shoppingItemsUnsubscribe) {
+    state.shoppingItemsUnsubscribe();
+  }
+  const docRef = getShoppingItemsDocRef();
+  state.shoppingItemsUnsubscribe = onSnapshot(docRef, (snapshot) => {
+    const data = snapshot.data();
+    if (!data?.items) {
+      const localItems = loadShoppingItems();
+      if (localItems.length) {
+        saveShoppingItemsRemote();
+      }
+      return;
+    }
+    replaceShoppingItems(data.items);
   });
 }
 
@@ -843,15 +918,7 @@ function initShoppingList() {
   }
   const storedItems = loadShoppingItems();
   if (storedItems.length) {
-    storedItems.forEach((item) => {
-      if (item?.label) {
-        addShoppingItem(item.label, {
-          categoryId: item.categoryId,
-          checked: item.checked,
-          shouldPersist: false
-        });
-      }
-    });
+    replaceShoppingItems(storedItems);
   }
   updateShoppingEmptyState();
 }
@@ -1035,6 +1102,7 @@ onAuthStateChanged(auth, (user) => {
   state.userId = user.uid;
   initCalendar();
   initCustomCategoriesSync();
+  initShoppingItemsSync();
 });
 
 updateStatus();
