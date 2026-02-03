@@ -29,7 +29,16 @@
   </section>
 
   <main class="page-content">
-    <section class="calendar-section" aria-labelledby="calendarTitle">
+    <nav class="section-switch" aria-label="Secciones">
+      <button class="btn switch-btn is-active" type="button" data-view="calendarView" aria-pressed="true">
+        Calendario
+      </button>
+      <button class="btn switch-btn" type="button" data-view="shoppingView" aria-pressed="false">
+        Lista de la compra
+      </button>
+    </nav>
+
+    <section class="calendar-section view-panel is-active" id="calendarView" aria-labelledby="calendarTitle">
       <header class="section-header">
         <div>
           <h2 id="calendarTitle">Calendario</h2>
@@ -51,7 +60,7 @@
       </div>
     </section>
 
-    <section class="shopping" aria-labelledby="shoppingTitle">
+    <section class="shopping view-panel" id="shoppingView" aria-labelledby="shoppingTitle">
       <div class="shopping-card">
         <header>
           <div>

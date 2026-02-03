@@ -35,6 +35,8 @@ const rangeSubtitle = document.getElementById("rangeSubtitle");
 const shoppingForm = document.getElementById("shoppingForm");
 const shoppingInput = document.getElementById("shoppingInput");
 const shoppingList = document.getElementById("shoppingList");
+const viewButtons = document.querySelectorAll(".switch-btn");
+const viewPanels = document.querySelectorAll(".view-panel");
 
 const SHARED_CALENDAR_ID = "calendario-compartido";
 
@@ -323,6 +325,26 @@ function initShoppingList() {
   });
 }
 
+function setActiveView(viewId) {
+  viewPanels.forEach((panel) => {
+    panel.classList.toggle("is-active", panel.id === viewId);
+  });
+  viewButtons.forEach((button) => {
+    const isActive = button.dataset.view === viewId;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function initViewSwitcher() {
+  if (!viewButtons.length || !viewPanels.length) return;
+  viewButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      setActiveView(button.dataset.view);
+    });
+  });
+}
+
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
 todayBtn.addEventListener("click", jumpToToday);
@@ -343,3 +365,4 @@ onAuthStateChanged(auth, (user) => {
 
 updateStatus();
 initShoppingList();
+initViewSwitcher();
