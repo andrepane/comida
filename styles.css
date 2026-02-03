@@ -520,6 +520,20 @@ body[data-theme="dark"] .shopping-item {
   border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
+.shopping-item__select {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(248, 250, 252, 0.9);
+  color: var(--text);
+}
+
+body[data-theme="dark"] .shopping-item__select {
+  background: rgba(15, 23, 42, 0.7);
+}
+
 body[data-theme="dark"] .shopping-item__tag {
   background: rgba(148, 163, 184, 0.2);
   border-color: transparent;
