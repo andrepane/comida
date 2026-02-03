@@ -81,6 +81,9 @@ const state = {
   unsubscribes: new Map(),
   timers: new Map(),
   flashTimers: new Map(),
+  customCategories: {},
+  customCategoriesUnsubscribe: null,
+  customCategoriesSaveTimer: null,
   dayElements: new Map(),
   pendingSaves: 0,
   inFlight: 0,
@@ -406,6 +409,7 @@ function normalizeText(value) {
 }
 
 const CUSTOM_CATEGORIES_KEY = "customCategories";
+const CUSTOM_CATEGORIES_DOC_ID = "customCategories";
 const SHOPPING_ITEMS_KEY = "shoppingItems";
 
 function loadCustomCategories() {
@@ -419,6 +423,17 @@ function loadCustomCategories() {
 
 function saveCustomCategories(categories) {
   localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(categories));
+}
+
+state.customCategories = loadCustomCategories();
+
+function applyCustomCategories(categories) {
+  state.customCategories = { ...categories };
+  saveCustomCategories(state.customCategories);
+}
+
+function getCustomCategoriesDocRef() {
+  return doc(db, "calendars", state.calendarId, "shopping", CUSTOM_CATEGORIES_DOC_ID);
 }
 
 function loadShoppingItems() {
@@ -445,14 +460,62 @@ function persistShoppingList() {
 }
 
 function getCustomCategory(value) {
-  const categories = loadCustomCategories();
-  return categories[normalizeText(value)];
+  return state.customCategories[normalizeText(value)];
 }
 
 function setCustomCategory(value, categoryId) {
-  const categories = loadCustomCategories();
-  categories[normalizeText(value)] = categoryId;
-  saveCustomCategories(categories);
+  const normalized = normalizeText(value);
+  if (state.customCategories[normalized] === categoryId) return;
+  state.customCategories = { ...state.customCategories, [normalized]: categoryId };
+  saveCustomCategories(state.customCategories);
+  scheduleCustomCategoriesSave();
+}
+
+function scheduleCustomCategoriesSave() {
+  if (!state.userId) return;
+  if (state.customCategoriesSaveTimer) {
+    clearTimeout(state.customCategoriesSaveTimer);
+  }
+  state.customCategoriesSaveTimer = setTimeout(() => {
+    state.customCategoriesSaveTimer = null;
+    saveCustomCategoriesRemote();
+  }, 400);
+}
+
+async function saveCustomCategoriesRemote() {
+  if (!state.userId || !state.calendarId) return;
+  const docRef = getCustomCategoriesDocRef();
+  try {
+    await setDoc(
+      docRef,
+      {
+        categories: state.customCategories,
+        updatedAt: serverTimestamp(),
+        updatedBy: state.userId
+      },
+      { merge: true }
+    );
+  } catch {
+    // Silencioso: los cambios locales ya están guardados y se reintentarán.
+  }
+}
+
+function initCustomCategoriesSync() {
+  if (!state.userId || !state.calendarId) return;
+  if (state.customCategoriesUnsubscribe) {
+    state.customCategoriesUnsubscribe();
+  }
+  const docRef = getCustomCategoriesDocRef();
+  state.customCategoriesUnsubscribe = onSnapshot(docRef, (snapshot) => {
+    const data = snapshot.data();
+    if (!data?.categories) {
+      if (Object.keys(state.customCategories).length) {
+        saveCustomCategoriesRemote();
+      }
+      return;
+    }
+    applyCustomCategories(data.categories);
+  });
 }
 
 function getShoppingCategory(value) {
@@ -940,6 +1003,7 @@ onAuthStateChanged(auth, (user) => {
   }
   state.userId = user.uid;
   initCalendar();
+  initCustomCategoriesSync();
 });
 
 updateStatus();
