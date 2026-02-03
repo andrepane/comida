@@ -47,46 +47,6 @@ p {
   margin-top: 6px;
 }
 
-.share {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: flex-end;
-}
-
-.share-code {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.share-code .label {
-  color: #6b7280;
-  font-weight: 600;
-}
-
-.share-code .code {
-  font-family: "JetBrains Mono", "SFMono-Regular", monospace;
-  background: #f1f5f9;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-}
-
-.share-join {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.share-join input {
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid #d1d5db;
-  min-width: 220px;
-}
 
 .status-bar {
   display: flex;
@@ -235,11 +195,6 @@ p {
 }
 
 @media (max-width: 640px) {
-  .share {
-    align-items: flex-start;
-    width: 100%;
-  }
-
   .calendar-controls {
     justify-content: center;
   }

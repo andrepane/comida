@@ -1,12 +1,6 @@
 # Calendario de comidas
 
-Aplicación web simple para planificar **comida** y **cena** en 14 días (semana actual + siguiente) con sincronización en tiempo real usando Firebase Auth anónima y Cloud Firestore.
-
-## Compartir un calendario
-- Arriba verás el **Código** del calendario actual.
-- Pulsa **Copiar código** y compártelo con otra persona.
-- En otro dispositivo, introduce el código en **Unirse con código** y pulsa **Unirse**.
-- El código se guarda en `localStorage` y todos los cambios se sincronizan al instante.
+Aplicación web simple para planificar **comida** y **cena** en 14 días (semana actual + siguiente) con sincronización en tiempo real usando Firebase Auth anónima y Cloud Firestore en un único calendario compartido.
 
 ## Requisitos de Firebase
 - Autenticación anónima habilitada en Firebase Auth.
@@ -23,3 +17,6 @@ calendars/{calendarId}/days/{yyyy-mm-dd} -> {
 ```
 
 > Nota: la app **solo** escribe `lunch`, `dinner`, `updatedAt` y `updatedBy` para cumplir con las reglas.
+
+## ID del calendario compartido
+El calendario usa un único ID fijo (`calendario-compartido`) definido en `app.js`. Si quieres cambiarlo, actualiza ese valor y reutiliza el mismo en todas tus instalaciones.
