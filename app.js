@@ -276,7 +276,38 @@ function initCalendar() {
 
 function addShoppingItem(value) {
   const item = document.createElement("li");
-  item.textContent = value;
+  item.className = "shopping-item";
+
+  const label = document.createElement("span");
+  label.className = "shopping-item__label";
+  label.textContent = value;
+
+  const actions = document.createElement("div");
+  actions.className = "shopping-item__actions";
+
+  const toggleBtn = document.createElement("button");
+  toggleBtn.type = "button";
+  toggleBtn.className = "shopping-action check";
+  toggleBtn.setAttribute("aria-label", "Marcar como comprado");
+  toggleBtn.setAttribute("aria-pressed", "false");
+  toggleBtn.textContent = "✓";
+
+  toggleBtn.addEventListener("click", () => {
+    const isChecked = item.classList.toggle("is-checked");
+    toggleBtn.setAttribute("aria-pressed", String(isChecked));
+  });
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "shopping-action delete";
+  deleteBtn.setAttribute("aria-label", "Eliminar de la lista");
+  deleteBtn.textContent = "✕";
+  deleteBtn.addEventListener("click", () => {
+    item.remove();
+  });
+
+  actions.append(toggleBtn, deleteBtn);
+  item.append(label, actions);
   shoppingList.append(item);
 }
 
