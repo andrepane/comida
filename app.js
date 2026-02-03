@@ -335,7 +335,7 @@ function getShoppingCategory(value) {
   const normalized = normalizeText(value);
   const includesAny = (keywords) => keywords.some((keyword) => normalized.includes(keyword));
 
-  if (includesAny(["carne", "pollo", "ternera", "cerdo", "pavo", "chuleta", "hamburguesa", "jamon"])) {
+  if (includesAny(["carne", "pollo", "ternera", "cerdo", "pavo", "chuleta", "hamburguesa", "jamon", "solomillo"])) {
     return "carne";
   }
   if (includesAny(["pescado", "atun", "salmon", "merluza", "gamba", "gambas", "marisco"])) {
