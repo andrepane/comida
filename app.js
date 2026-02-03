@@ -331,9 +331,40 @@ function normalizeText(value) {
   return value.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
 }
 
+const CUSTOM_CATEGORIES_KEY = "customCategories";
+
+function loadCustomCategories() {
+  try {
+    const stored = localStorage.getItem(CUSTOM_CATEGORIES_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCustomCategories(categories) {
+  localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(categories));
+}
+
+function getCustomCategory(value) {
+  const categories = loadCustomCategories();
+  return categories[normalizeText(value)];
+}
+
+function setCustomCategory(value, categoryId) {
+  const categories = loadCustomCategories();
+  categories[normalizeText(value)] = categoryId;
+  saveCustomCategories(categories);
+}
+
 function getShoppingCategory(value) {
   const normalized = normalizeText(value);
   const includesAny = (keywords) => keywords.some((keyword) => normalized.includes(keyword));
+  const customCategory = getCustomCategory(value);
+
+  if (customCategory) {
+    return customCategory;
+  }
 
   if (includesAny(["carne", "pollo", "ternera", "cerdo", "pavo", "chuleta", "hamburguesa", "jamon", "solomillo"])) {
     return "carne";
@@ -412,6 +443,25 @@ function removeCategoryGroupIfEmpty(listElement) {
   if (group) group.remove();
 }
 
+function updateShoppingItemCategory(item, nextCategoryId) {
+  if (!item || !nextCategoryId) return;
+  const currentCategoryId = item.dataset.category;
+  if (currentCategoryId === nextCategoryId) return;
+
+  const categoryMeta = getCategoryMeta(nextCategoryId);
+  const targetList = ensureCategoryGroup(categoryMeta.id);
+  const currentList = item.closest(".shopping-category")?.querySelector(".shopping-category__list");
+
+  item.dataset.category = categoryMeta.id;
+  const tag = item.querySelector(".shopping-item__tag");
+  if (tag) {
+    tag.textContent = categoryMeta.label;
+  }
+
+  targetList.append(item);
+  removeCategoryGroupIfEmpty(currentList);
+}
+
 function addShoppingItem(value) {
   const categoryId = getShoppingCategory(value);
   const categoryMeta = getCategoryMeta(categoryId);
@@ -428,6 +478,26 @@ function addShoppingItem(value) {
   const tag = document.createElement("span");
   tag.className = "shopping-item__tag";
   tag.textContent = categoryMeta.label;
+
+  const select = document.createElement("select");
+  select.className = "shopping-item__select";
+  select.setAttribute("aria-label", "Cambiar categoría");
+  SHOPPING_CATEGORIES.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category.id;
+    option.textContent = category.label;
+    if (category.id === categoryMeta.id) {
+      option.selected = true;
+    }
+    select.append(option);
+  });
+
+  select.addEventListener("change", () => {
+    const nextCategoryId = select.value;
+    // Guardamos la preferencia para aprender en el futuro.
+    setCustomCategory(value, nextCategoryId);
+    updateShoppingItemCategory(item, nextCategoryId);
+  });
 
   const actions = document.createElement("div");
   actions.className = "shopping-item__actions";
@@ -455,7 +525,7 @@ function addShoppingItem(value) {
   });
 
   actions.append(toggleBtn, deleteBtn);
-  item.append(label, tag, actions);
+  item.append(label, tag, select, actions);
   groupList.append(item);
 }
 
