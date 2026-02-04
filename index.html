@@ -47,6 +47,9 @@
         <button class="btn switch-btn" type="button" data-view="shoppingView" aria-pressed="false">
           Lista de la compra
         </button>
+        <button class="btn switch-btn" type="button" data-view="recipesView" aria-pressed="false">
+          Recetas
+        </button>
       </nav>
 
       <section class="calendar-section view-panel is-active" id="calendarView" aria-labelledby="calendarTitle">
@@ -97,6 +100,26 @@
           </form>
           <p class="empty-state" id="shoppingEmpty">Tu lista está vacía. Añade lo básico para arrancar.</p>
           <ul class="shopping-list" id="shoppingList" aria-live="polite"></ul>
+        </div>
+      </section>
+
+      <section class="recipes view-panel" id="recipesView" aria-labelledby="recipesTitle">
+        <div class="recipes-card">
+          <header>
+            <div>
+              <h2 id="recipesTitle">Recetas</h2>
+              <p>Guarda tus recetas favoritas y súbelas rápido al calendario.</p>
+            </div>
+          </header>
+          <form class="recipes-form" id="recipesForm">
+            <label class="field">
+              <span>Nueva receta</span>
+              <input id="recipesInput" type="text" placeholder="Ej: Bowl de quinoa, tacos..." />
+            </label>
+            <button class="btn secondary" type="submit">Guardar</button>
+          </form>
+          <p class="empty-state" id="recipesEmpty">Todavía no tienes recetas guardadas.</p>
+          <ul class="recipes-list" id="recipesList" aria-live="polite"></ul>
         </div>
       </section>
     </main>

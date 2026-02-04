@@ -36,6 +36,10 @@ const shoppingForm = document.getElementById("shoppingForm");
 const shoppingInput = document.getElementById("shoppingInput");
 const shoppingList = document.getElementById("shoppingList");
 const shoppingEmpty = document.getElementById("shoppingEmpty");
+const recipesForm = document.getElementById("recipesForm");
+const recipesInput = document.getElementById("recipesInput");
+const recipesList = document.getElementById("recipesList");
+const recipesEmpty = document.getElementById("recipesEmpty");
 const viewButtons = document.querySelectorAll(".switch-btn");
 const viewPanels = document.querySelectorAll(".view-panel");
 const statusBadge = document.querySelector(".status-badge");
@@ -100,6 +104,8 @@ const state = {
   customCategoriesSaveTimer: null,
   shoppingItemsUnsubscribe: null,
   shoppingItemsSaveTimer: null,
+  recipesUnsubscribe: null,
+  recipesSaveTimer: null,
   dayElements: new Map(),
   pendingSaves: 0,
   inFlight: 0,
@@ -428,6 +434,8 @@ const CUSTOM_CATEGORIES_KEY = "customCategories";
 const CUSTOM_CATEGORIES_DOC_ID = "customCategories";
 const SHOPPING_ITEMS_KEY = "shoppingItems";
 const SHOPPING_ITEMS_DOC_ID = "items";
+const RECIPES_KEY = "recipes";
+const RECIPES_DOC_ID = "items";
 
 function loadCustomCategories() {
   try {
@@ -455,6 +463,107 @@ function getCustomCategoriesDocRef() {
 
 function getShoppingItemsDocRef() {
   return doc(db, "calendars", state.calendarId, "shopping", SHOPPING_ITEMS_DOC_ID);
+}
+
+function getRecipesDocRef() {
+  return doc(db, "calendars", state.calendarId, "recipes", RECIPES_DOC_ID);
+}
+
+function generateRecipeId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `recipe-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function loadRecipes() {
+  try {
+    const stored = localStorage.getItem(RECIPES_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecipes(recipes) {
+  localStorage.setItem(RECIPES_KEY, JSON.stringify(recipes));
+}
+
+function getRecipesFromDom() {
+  if (!recipesList) return [];
+  return Array.from(recipesList.querySelectorAll(".recipe-item")).map((item) => ({
+    id: item.dataset.recipeId || generateRecipeId(),
+    title: item.querySelector(".recipe-title")?.textContent?.trim() ?? ""
+  })).filter((recipe) => recipe.title);
+}
+
+function persistRecipes({ syncRemote = true } = {}) {
+  const recipes = getRecipesFromDom();
+  saveRecipes(recipes);
+  if (syncRemote) {
+    scheduleRecipesSave();
+  }
+}
+
+function scheduleRecipesSave() {
+  if (!state.userId) return;
+  if (state.recipesSaveTimer) {
+    clearTimeout(state.recipesSaveTimer);
+  }
+  state.recipesSaveTimer = setTimeout(() => {
+    state.recipesSaveTimer = null;
+    saveRecipesRemote();
+  }, 400);
+}
+
+async function saveRecipesRemote() {
+  if (!state.userId || !state.calendarId) return;
+  const docRef = getRecipesDocRef();
+  const recipes = loadRecipes();
+  try {
+    await setDoc(
+      docRef,
+      {
+        recipes,
+        updatedAt: serverTimestamp(),
+        updatedBy: state.userId
+      },
+      { merge: true }
+    );
+  } catch {
+    // Silencioso: los cambios locales ya están guardados y se reintentarán.
+  }
+}
+
+function replaceRecipes(recipes) {
+  if (!recipesList) return;
+  recipesList.innerHTML = "";
+  recipes.forEach((recipe) => {
+    if (recipe?.title) {
+      addRecipeItem(recipe, { shouldPersist: false });
+    }
+  });
+  updateRecipesEmptyState();
+  persistRecipes({ syncRemote: false });
+}
+
+function initRecipesSync() {
+  if (!state.userId || !state.calendarId) return;
+  if (state.recipesUnsubscribe) {
+    state.recipesUnsubscribe();
+  }
+  const docRef = getRecipesDocRef();
+  state.recipesUnsubscribe = onSnapshot(docRef, (snapshot) => {
+    const data = snapshot.data();
+    if (!data?.recipes) {
+      const localRecipes = loadRecipes();
+      if (localRecipes.length) {
+        saveRecipesRemote();
+      }
+      return;
+    }
+    replaceRecipes(data.recipes);
+  });
 }
 
 function loadShoppingItems() {
@@ -875,6 +984,114 @@ function addShoppingItem(value, options = {}) {
   }
 }
 
+function updateRecipesEmptyState() {
+  if (!recipesEmpty || !recipesList) return;
+  const totalItems = recipesList.querySelectorAll(".recipe-item").length;
+  recipesEmpty.classList.toggle("is-visible", totalItems === 0);
+}
+
+function isDateInCurrentRange(date) {
+  const start = new Date(state.currentMonday);
+  const end = new Date(state.currentMonday);
+  end.setDate(end.getDate() + 13);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+  return date >= start && date <= end;
+}
+
+function planRecipeForDate({ recipeTitle, dateValue, meal }) {
+  const safeDateValue = dateValue || formatDateId(new Date());
+  const date = new Date(`${safeDateValue}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return;
+
+  if (!isDateInCurrentRange(date)) {
+    state.currentMonday = getMonday(date);
+    buildCalendar();
+  }
+
+  const dateId = formatDateId(date);
+  const elements = state.dayElements.get(dateId);
+  if (!elements) return;
+  const targetInput = meal === "dinner" ? elements.dinnerInput : elements.lunchInput;
+  const currentValue = targetInput.value.trim();
+  const nextValue = currentValue ? `${currentValue} + ${recipeTitle}` : recipeTitle;
+  targetInput.value = nextValue;
+  updateDayState(dateId, elements.lunchInput.value, elements.dinnerInput.value);
+  scheduleSave(dateId, true);
+  elements.card.scrollIntoView({ behavior: "smooth", block: "center" });
+  showCalendarNotice(`Receta añadida a ${formatDayName(date)}.`);
+}
+
+function addRecipeItem(recipe, options = {}) {
+  if (!recipesList) return;
+  const { shouldPersist = true } = options;
+  const item = document.createElement("li");
+  item.className = "recipe-item";
+  item.dataset.recipeId = recipe.id;
+
+  const main = document.createElement("div");
+  main.className = "recipe-main";
+
+  const title = document.createElement("span");
+  title.className = "recipe-title";
+  title.textContent = recipe.title;
+
+  main.append(title);
+
+  const actions = document.createElement("div");
+  actions.className = "recipe-actions";
+
+  const dateField = document.createElement("label");
+  dateField.className = "recipe-field";
+  const dateLabel = document.createElement("span");
+  dateLabel.textContent = "Fecha";
+  const dateInput = document.createElement("input");
+  dateInput.type = "date";
+  dateInput.value = formatDateId(new Date());
+  dateField.append(dateLabel, dateInput);
+
+  const mealField = document.createElement("label");
+  mealField.className = "recipe-field";
+  const mealLabel = document.createElement("span");
+  mealLabel.textContent = "Momento";
+  const mealSelect = document.createElement("select");
+  mealSelect.innerHTML = `
+    <option value="lunch">Comida</option>
+    <option value="dinner">Cena</option>
+  `;
+  mealField.append(mealLabel, mealSelect);
+
+  const addButton = document.createElement("button");
+  addButton.type = "button";
+  addButton.className = "btn secondary small";
+  addButton.textContent = "Añadir";
+  addButton.addEventListener("click", () => {
+    planRecipeForDate({
+      recipeTitle: recipe.title,
+      dateValue: dateInput.value,
+      meal: mealSelect.value
+    });
+  });
+
+  const deleteButton = document.createElement("button");
+  deleteButton.type = "button";
+  deleteButton.className = "btn ghost small";
+  deleteButton.textContent = "Eliminar";
+  deleteButton.addEventListener("click", () => {
+    item.remove();
+    updateRecipesEmptyState();
+    persistRecipes();
+  });
+
+  actions.append(dateField, mealField, addButton, deleteButton);
+  item.append(main, actions);
+  recipesList.append(item);
+  updateRecipesEmptyState();
+  if (shouldPersist) {
+    persistRecipes();
+  }
+}
+
 function initShoppingList() {
   if (!shoppingForm || !shoppingInput || !shoppingList) return;
   shoppingForm.addEventListener("submit", (event) => {
@@ -921,6 +1138,23 @@ function initShoppingList() {
     replaceShoppingItems(storedItems);
   }
   updateShoppingEmptyState();
+}
+
+function initRecipesList() {
+  if (!recipesForm || !recipesInput || !recipesList) return;
+  recipesForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const value = recipesInput.value.trim();
+    if (!value) return;
+    addRecipeItem({ id: generateRecipeId(), title: value });
+    recipesInput.value = "";
+    recipesInput.focus();
+  });
+  const storedRecipes = loadRecipes();
+  if (storedRecipes.length) {
+    replaceRecipes(storedRecipes);
+  }
+  updateRecipesEmptyState();
 }
 
 function setActiveView(viewId) {
@@ -1103,9 +1337,11 @@ onAuthStateChanged(auth, (user) => {
   initCalendar();
   initCustomCategoriesSync();
   initShoppingItemsSync();
+  initRecipesSync();
 });
 
 updateStatus();
 initShoppingList();
+initRecipesList();
 initViewSwitcher();
 initThemeToggle();
