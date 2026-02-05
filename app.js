@@ -38,6 +38,9 @@ const shoppingList = document.getElementById("shoppingList");
 const shoppingEmpty = document.getElementById("shoppingEmpty");
 const recipesForm = document.getElementById("recipesForm");
 const recipesInput = document.getElementById("recipesInput");
+const recipeIngredientInput = document.getElementById("recipeIngredientInput");
+const recipeIngredientAdd = document.getElementById("recipeIngredientAdd");
+const recipeIngredientsList = document.getElementById("recipeIngredientsList");
 const recipesList = document.getElementById("recipesList");
 const recipesEmpty = document.getElementById("recipesEmpty");
 const viewButtons = document.querySelectorAll(".switch-btn");
@@ -476,6 +479,113 @@ function generateRecipeId() {
   return `recipe-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function normalizeRecipeIngredients(ingredients) {
+  if (!Array.isArray(ingredients)) return [];
+  return ingredients
+    .map((ingredient) => ({
+      label: ingredient?.label?.trim() ?? "",
+      categoryId: ingredient?.categoryId || ""
+    }))
+    .filter((ingredient) => ingredient.label);
+}
+
+function getRecipeIngredientCategoryId(label, categoryId) {
+  return categoryId || getCustomCategory(label) || getShoppingCategory(label);
+}
+
+function buildRecipeIngredientItem(ingredient, options = {}) {
+  const { onRemove, onCategoryChange } = options;
+  const item = document.createElement("li");
+  item.className = "recipe-ingredient";
+
+  const label = document.createElement("span");
+  label.className = "recipe-ingredient__label";
+  label.textContent = ingredient.label;
+
+  const categoryId = getRecipeIngredientCategoryId(ingredient.label, ingredient.categoryId);
+  item.dataset.category = categoryId;
+
+  const categoryLabel = document.createElement("span");
+  categoryLabel.textContent = getCategoryMeta(categoryId).label;
+
+  const categoryWrapper = document.createElement("label");
+  categoryWrapper.className = "recipe-ingredient__category";
+
+  const select = document.createElement("select");
+  select.className = "recipe-ingredient__select";
+  select.setAttribute("aria-label", "Categoría del ingrediente");
+  SHOPPING_CATEGORIES.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category.id;
+    option.textContent = category.label;
+    if (category.id === categoryId) {
+      option.selected = true;
+    }
+    select.append(option);
+  });
+  select.addEventListener("change", () => {
+    const nextCategory = select.value;
+    item.dataset.category = nextCategory;
+    categoryLabel.textContent = getCategoryMeta(nextCategory).label;
+    setCustomCategory(ingredient.label, nextCategory);
+    if (onCategoryChange) {
+      onCategoryChange(nextCategory);
+    }
+  });
+
+  categoryWrapper.append(categoryLabel, select);
+
+  const removeButton = document.createElement("button");
+  removeButton.type = "button";
+  removeButton.className = "recipe-ingredient__remove";
+  removeButton.setAttribute("aria-label", "Quitar ingrediente");
+  removeButton.textContent = "✕";
+  removeButton.addEventListener("click", () => {
+    item.remove();
+    if (onRemove) {
+      onRemove();
+    }
+  });
+
+  item.append(label, categoryWrapper, removeButton);
+  return item;
+}
+
+function addRecipeIngredientToDraft(ingredient) {
+  if (!recipeIngredientsList) return;
+  const item = buildRecipeIngredientItem(ingredient);
+  recipeIngredientsList.append(item);
+}
+
+function getRecipeIngredientsFromList(listElement) {
+  if (!listElement) return [];
+  return Array.from(listElement.querySelectorAll(".recipe-ingredient")).map((item) => ({
+    label: item.querySelector(".recipe-ingredient__label")?.textContent?.trim() ?? "",
+    categoryId: item.dataset.category || ""
+  })).filter((ingredient) => ingredient.label);
+}
+
+function refreshRecipeIngredientsEmptyState(listElement) {
+  if (!listElement) return;
+  const hasIngredients = listElement.querySelector(".recipe-ingredient:not(.is-empty)");
+  const emptyItem = listElement.querySelector(".recipe-ingredient.is-empty");
+  if (hasIngredients) {
+    if (emptyItem) emptyItem.remove();
+    return;
+  }
+  if (!emptyItem) {
+    const placeholder = document.createElement("li");
+    placeholder.className = "recipe-ingredient is-empty";
+    placeholder.textContent = "Sin ingredientes guardados.";
+    listElement.append(placeholder);
+  }
+}
+
+function clearRecipeIngredientsDraft() {
+  if (!recipeIngredientsList) return;
+  recipeIngredientsList.innerHTML = "";
+}
+
 function loadRecipes() {
   try {
     const stored = localStorage.getItem(RECIPES_KEY);
@@ -493,7 +603,8 @@ function getRecipesFromDom() {
   if (!recipesList) return [];
   return Array.from(recipesList.querySelectorAll(".recipe-item")).map((item) => ({
     id: item.dataset.recipeId || generateRecipeId(),
-    title: item.querySelector(".recipe-title")?.textContent?.trim() ?? ""
+    title: item.querySelector(".recipe-title")?.textContent?.trim() ?? "",
+    ingredients: getRecipeIngredientsFromList(item.querySelector(".recipe-ingredients__list"))
   })).filter((recipe) => recipe.title);
 }
 
@@ -1022,9 +1133,23 @@ function planRecipeForDate({ recipeTitle, dateValue, meal }) {
   showCalendarNotice(`Receta añadida a ${formatDayName(date)}.`);
 }
 
+function addRecipeIngredientsToShopping(ingredients) {
+  if (!Array.isArray(ingredients) || !ingredients.length) return;
+  ingredients.forEach((ingredient) => {
+    const label = ingredient?.label?.trim();
+    if (!label) return;
+    addShoppingItem(label, {
+      categoryId: getRecipeIngredientCategoryId(label, ingredient.categoryId),
+      shouldPersist: false
+    });
+  });
+  persistShoppingList();
+}
+
 function addRecipeItem(recipe, options = {}) {
   if (!recipesList) return;
   const { shouldPersist = true } = options;
+  const recipeIngredients = normalizeRecipeIngredients(recipe.ingredients);
   const item = document.createElement("li");
   item.className = "recipe-item";
   item.dataset.recipeId = recipe.id;
@@ -1037,6 +1162,74 @@ function addRecipeItem(recipe, options = {}) {
   title.textContent = recipe.title;
 
   main.append(title);
+
+  const ingredientsWrapper = document.createElement("div");
+  ingredientsWrapper.className = "recipe-ingredients";
+
+  const ingredientsTitle = document.createElement("span");
+  ingredientsTitle.className = "recipe-ingredients__title";
+  ingredientsTitle.textContent = "Ingredientes";
+
+  const ingredientsList = document.createElement("ul");
+  ingredientsList.className = "recipe-ingredients__list";
+
+  recipeIngredients.forEach((ingredient) => {
+    const ingredientItem = buildRecipeIngredientItem(ingredient, {
+      onRemove: () => {
+        refreshRecipeIngredientsEmptyState(ingredientsList);
+        persistRecipes();
+      },
+      onCategoryChange: () => {
+        persistRecipes();
+      }
+    });
+    ingredientsList.append(ingredientItem);
+  });
+  refreshRecipeIngredientsEmptyState(ingredientsList);
+
+  const ingredientControls = document.createElement("div");
+  ingredientControls.className = "recipe-ingredient-controls";
+
+  const ingredientInput = document.createElement("input");
+  ingredientInput.type = "text";
+  ingredientInput.className = "recipe-ingredient-controls__input";
+  ingredientInput.placeholder = "Añadir ingrediente";
+
+  const ingredientButton = document.createElement("button");
+  ingredientButton.type = "button";
+  ingredientButton.className = "btn ghost small";
+  ingredientButton.textContent = "Agregar";
+
+  const handleAddIngredient = () => {
+    const value = ingredientInput.value.trim();
+    if (!value) return;
+    const ingredientItem = buildRecipeIngredientItem({ label: value }, {
+      onRemove: () => {
+        refreshRecipeIngredientsEmptyState(ingredientsList);
+        persistRecipes();
+      },
+      onCategoryChange: () => {
+        persistRecipes();
+      }
+    });
+    ingredientsList.append(ingredientItem);
+    refreshRecipeIngredientsEmptyState(ingredientsList);
+    ingredientInput.value = "";
+    ingredientInput.focus();
+    persistRecipes();
+  };
+
+  ingredientButton.addEventListener("click", handleAddIngredient);
+  ingredientInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleAddIngredient();
+    }
+  });
+
+  ingredientControls.append(ingredientInput, ingredientButton);
+
+  ingredientsWrapper.append(ingredientsTitle, ingredientsList, ingredientControls);
 
   const actions = document.createElement("div");
   actions.className = "recipe-actions";
@@ -1071,6 +1264,7 @@ function addRecipeItem(recipe, options = {}) {
       dateValue: dateInput.value,
       meal: mealSelect.value
     });
+    addRecipeIngredientsToShopping(getRecipeIngredientsFromList(ingredientsList));
   });
 
   const deleteButton = document.createElement("button");
@@ -1084,7 +1278,7 @@ function addRecipeItem(recipe, options = {}) {
   });
 
   actions.append(dateField, mealField, addButton, deleteButton);
-  item.append(main, actions);
+  item.append(main, ingredientsWrapper, actions);
   recipesList.append(item);
   updateRecipesEmptyState();
   if (shouldPersist) {
@@ -1142,13 +1336,24 @@ function initShoppingList() {
 
 function initRecipesList() {
   if (!recipesForm || !recipesInput || !recipesList) return;
+  if (recipeIngredientAdd && recipeIngredientInput) {
+    recipeIngredientAdd.addEventListener("click", () => {
+      const value = recipeIngredientInput.value.trim();
+      if (!value) return;
+      addRecipeIngredientToDraft({ label: value });
+      recipeIngredientInput.value = "";
+      recipeIngredientInput.focus();
+    });
+  }
   recipesForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const value = recipesInput.value.trim();
     if (!value) return;
-    addRecipeItem({ id: generateRecipeId(), title: value });
+    const ingredients = getRecipeIngredientsFromList(recipeIngredientsList);
+    addRecipeItem({ id: generateRecipeId(), title: value, ingredients });
     recipesInput.value = "";
     recipesInput.focus();
+    clearRecipeIngredientsDraft();
   });
   const storedRecipes = loadRecipes();
   if (storedRecipes.length) {
