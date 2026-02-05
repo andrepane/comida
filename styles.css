@@ -1093,6 +1093,13 @@ body[data-theme="dark"] .recipe-field select {
   .shopping-item__actions {
     margin-left: auto;
   }
+
+  .recipe-ingredient__category {
+    padding: 4px 8px;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    box-shadow: 0 4px 8px rgba(15, 23, 42, 0.1);
+  }
 }
 
 .shopping-category[data-category="carne"] {
