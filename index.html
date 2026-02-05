@@ -116,8 +116,17 @@
               <span>Nueva receta</span>
               <input id="recipesInput" type="text" placeholder="Ej: Bowl de quinoa, tacos..." />
             </label>
+            <label class="field">
+              <span>Ingrediente</span>
+              <input id="recipeIngredientInput" type="text" placeholder="Ej: Tomate, arroz..." />
+            </label>
+            <button class="btn ghost" type="button" id="recipeIngredientAdd">Añadir ingrediente</button>
             <button class="btn secondary" type="submit">Guardar</button>
           </form>
+          <div class="recipe-ingredients-panel" aria-live="polite">
+            <p class="recipe-ingredients-title">Ingredientes de la receta</p>
+            <ul class="recipe-ingredients-list" id="recipeIngredientsList"></ul>
+          </div>
           <p class="empty-state" id="recipesEmpty">Todavía no tienes recetas guardadas.</p>
           <ul class="recipes-list" id="recipesList" aria-live="polite"></ul>
         </div>
