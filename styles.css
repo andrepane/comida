@@ -937,6 +937,11 @@ body[data-theme="dark"] .recipe-ingredient-controls__input {
   background: rgba(255, 255, 255, 0.7);
 }
 
+.recipe-ingredient.is-included {
+  border-color: rgba(34, 197, 94, 0.7);
+  background: rgba(187, 247, 208, 0.6);
+}
+
 .recipe-ingredient.is-empty {
   grid-template-columns: 1fr;
   color: var(--muted);
@@ -949,6 +954,11 @@ body[data-theme="dark"] .recipe-ingredient-controls__input {
 
 body[data-theme="dark"] .recipe-ingredient {
   background: rgba(15, 23, 42, 0.7);
+}
+
+body[data-theme="dark"] .recipe-ingredient.is-included {
+  border-color: rgba(74, 222, 128, 0.7);
+  background: rgba(22, 101, 52, 0.4);
 }
 
 .recipe-ingredient__label {

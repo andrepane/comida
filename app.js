@@ -509,6 +509,7 @@ function buildRecipeIngredientItem(ingredient, options = {}) {
   const isIncluded = ingredient.includeInShopping !== false;
   item.dataset.includeInShopping = String(isIncluded);
   item.classList.toggle("is-excluded", !isIncluded);
+  item.classList.toggle("is-included", isIncluded);
 
   const categoryLabel = document.createElement("span");
   categoryLabel.className = "recipe-ingredient__category-label";
@@ -546,11 +547,12 @@ function buildRecipeIngredientItem(ingredient, options = {}) {
   toggleIncludeButton.className = "recipe-ingredient__toggle";
   toggleIncludeButton.setAttribute("aria-label", "Añadir a la lista de la compra");
   toggleIncludeButton.setAttribute("aria-pressed", String(isIncluded));
-  toggleIncludeButton.textContent = "✓";
+  toggleIncludeButton.innerHTML = "<i class=\"fa-solid fa-bag-shopping\" aria-hidden=\"true\"></i>";
   toggleIncludeButton.addEventListener("click", () => {
     const nextIncluded = item.dataset.includeInShopping !== "true";
     item.dataset.includeInShopping = String(nextIncluded);
     item.classList.toggle("is-excluded", !nextIncluded);
+    item.classList.toggle("is-included", nextIncluded);
     toggleIncludeButton.setAttribute("aria-pressed", String(nextIncluded));
     if (onToggleInclude) {
       onToggleInclude(nextIncluded);
