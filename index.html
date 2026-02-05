@@ -127,7 +127,12 @@
             <p class="recipe-ingredients-title">Ingredientes de la receta</p>
             <ul class="recipe-ingredients-list" id="recipeIngredientsList"></ul>
           </div>
+          <label class="field recipes-search">
+            <span>Buscar recetas guardadas</span>
+            <input id="recipesSearchInput" type="search" placeholder="Busca por nombre..." />
+          </label>
           <p class="empty-state" id="recipesEmpty">Todavía no tienes recetas guardadas.</p>
+          <p class="empty-state" id="recipesSearchEmpty">No hay recetas que coincidan con tu búsqueda.</p>
           <ul class="recipes-list" id="recipesList" aria-live="polite"></ul>
         </div>
       </section>

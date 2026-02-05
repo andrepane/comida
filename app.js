@@ -41,8 +41,10 @@ const recipesInput = document.getElementById("recipesInput");
 const recipeIngredientInput = document.getElementById("recipeIngredientInput");
 const recipeIngredientAdd = document.getElementById("recipeIngredientAdd");
 const recipeIngredientsList = document.getElementById("recipeIngredientsList");
+const recipesSearchInput = document.getElementById("recipesSearchInput");
 const recipesList = document.getElementById("recipesList");
 const recipesEmpty = document.getElementById("recipesEmpty");
+const recipesSearchEmpty = document.getElementById("recipesSearchEmpty");
 const hoursModeEl = document.getElementById("hoursMode");
 const viewButtons = document.querySelectorAll(".switch-btn");
 const viewPanels = document.querySelectorAll(".view-panel");
@@ -110,6 +112,7 @@ const state = {
   shoppingItemsSaveTimer: null,
   recipesUnsubscribe: null,
   recipesSaveTimer: null,
+  recipesFilter: "",
   dayElements: new Map(),
   pendingSaves: 0,
   inFlight: 0,
@@ -1126,6 +1129,27 @@ function updateRecipesEmptyState() {
   recipesEmpty.classList.toggle("is-visible", totalItems === 0);
 }
 
+function updateRecipesSearchEmptyState() {
+  if (!recipesSearchEmpty || !recipesList) return;
+  const query = state.recipesFilter?.trim();
+  const totalItems = recipesList.querySelectorAll(".recipe-item").length;
+  const visibleItems = recipesList.querySelectorAll(".recipe-item:not(.is-hidden)").length;
+  const shouldShow = Boolean(query) && totalItems > 0 && visibleItems === 0;
+  recipesSearchEmpty.classList.toggle("is-visible", shouldShow);
+}
+
+function applyRecipesFilter(rawQuery = recipesSearchInput?.value ?? "") {
+  if (!recipesList) return;
+  const query = rawQuery.trim().toLowerCase();
+  state.recipesFilter = query;
+  recipesList.querySelectorAll(".recipe-item").forEach((item) => {
+    const title = item.dataset.recipeTitle || "";
+    const matches = !query || title.includes(query);
+    item.classList.toggle("is-hidden", !matches);
+  });
+  updateRecipesSearchEmptyState();
+}
+
 function isDateInCurrentRange(date) {
   const start = new Date(state.currentMonday);
   const end = new Date(state.currentMonday);
@@ -1178,6 +1202,7 @@ function addRecipeItem(recipe, options = {}) {
   const item = document.createElement("li");
   item.className = "recipe-item";
   item.dataset.recipeId = recipe.id;
+  item.dataset.recipeTitle = recipe.title.toLowerCase();
 
   const main = document.createElement("div");
   main.className = "recipe-main";
@@ -1305,6 +1330,7 @@ function addRecipeItem(recipe, options = {}) {
   deleteButton.addEventListener("click", () => {
     item.remove();
     updateRecipesEmptyState();
+    applyRecipesFilter();
     persistRecipes();
   });
 
@@ -1312,6 +1338,7 @@ function addRecipeItem(recipe, options = {}) {
   item.append(main, ingredientsWrapper, actions);
   recipesList.append(item);
   updateRecipesEmptyState();
+  applyRecipesFilter();
   if (shouldPersist) {
     persistRecipes();
   }
@@ -1376,6 +1403,11 @@ function initRecipesList() {
       recipeIngredientInput.focus();
     });
   }
+  if (recipesSearchInput) {
+    recipesSearchInput.addEventListener("input", () => {
+      applyRecipesFilter();
+    });
+  }
   recipesForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const value = recipesInput.value.trim();
@@ -1391,6 +1423,7 @@ function initRecipesList() {
     replaceRecipes(storedRecipes);
   }
   updateRecipesEmptyState();
+  applyRecipesFilter();
 }
 
 function setActiveView(viewId) {
