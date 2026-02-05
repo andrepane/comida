@@ -506,6 +506,7 @@ function buildRecipeIngredientItem(ingredient, options = {}) {
   item.dataset.category = categoryId;
 
   const categoryLabel = document.createElement("span");
+  categoryLabel.className = "recipe-ingredient__category-label";
   categoryLabel.textContent = getCategoryMeta(categoryId).label;
 
   const categoryWrapper = document.createElement("label");

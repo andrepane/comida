@@ -952,27 +952,31 @@ body[data-theme="dark"] .recipe-ingredient {
 }
 
 .recipe-ingredient__category {
-  display: flex;
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--category-accent, var(--primary));
+  color: #ffffff;
   font-size: 12px;
-  color: var(--muted);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
 }
 
 .recipe-ingredient__select {
-  font-size: 13px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: rgba(248, 250, 252, 0.9);
-  color: var(--text);
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
-body[data-theme="dark"] .recipe-ingredient__select {
-  background: rgba(15, 23, 42, 0.9);
+.recipe-ingredient__category-label {
+  pointer-events: none;
 }
 
 .recipe-ingredient__remove {
