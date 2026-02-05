@@ -1,12 +1,12 @@
 :root {
   color-scheme: light;
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
+  --space-1: 3px;
+  --space-2: 6px;
+  --space-3: 9px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 20px;
   --bg: #f6f5f2;
   --card: #ffffff;
   --text: #1f2937;
@@ -17,9 +17,9 @@
   --recipe-border: rgba(239, 106, 82, 0.35);
   --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
   --shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.06);
-  --radius-lg: 20px;
-  --radius-md: 16px;
-  --radius-sm: 12px;
+  --radius-lg: 14px;
+  --radius-md: 12px;
+  --radius-sm: 10px;
 }
 
 body[data-theme="dark"] {
@@ -51,7 +51,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  padding: 0 0 64px;
+  padding: 0 0 48px;
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
 }
@@ -68,12 +68,12 @@ a {
 }
 
 .app-shell {
-  max-width: 980px;
+  max-width: 920px;
   margin: 0 auto;
-  padding: 24px clamp(16px, 4vw, 40px);
+  padding: 18px clamp(14px, 3vw, 32px);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
 }
 
 .topbar {
@@ -81,26 +81,26 @@ a {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   background: var(--card);
   border-radius: var(--radius-lg);
-  padding: 20px 24px;
+  padding: 16px 18px;
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
 }
 
 .brand {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
 }
 
 .brand-icon {
-  font-size: 36px;
+  font-size: 26px;
 }
 
 .brand h1 {
-  font-size: clamp(24px, 3vw, 32px);
+  font-size: clamp(18px, 2.2vw, 24px);
 }
 
 .brand p {
@@ -111,7 +111,7 @@ a {
 .topbar-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
 }
 
@@ -127,17 +127,17 @@ a {
   color: var(--muted);
   margin: 0;
   text-align: right;
-  max-width: 220px;
+  max-width: 200px;
 }
 
 .status-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-radius: 999px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   border: 1px solid transparent;
   background: rgba(248, 250, 252, 0.9);
   color: #0f172a;
@@ -179,8 +179,8 @@ body[data-theme="dark"] .status-badge {
 }
 
 .status-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: currentColor;
 }
@@ -189,7 +189,7 @@ body[data-theme="dark"] .status-badge {
   border: 1px solid var(--border);
   background: transparent;
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 6px 12px;
   font-weight: 600;
   cursor: pointer;
   color: var(--text);
@@ -205,20 +205,20 @@ body[data-theme="dark"] .status-badge {
 .btn:focus-visible,
 input:focus-visible,
 button:focus-visible {
-  outline: 3px solid rgba(239, 106, 82, 0.35);
+  outline: 2px solid rgba(239, 106, 82, 0.35);
   outline-offset: 2px;
 }
 
 .page-content {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
 }
 
 .section-switch {
   display: inline-flex;
-  gap: 8px;
-  padding: 6px;
+  gap: 6px;
+  padding: 5px;
   border-radius: 999px;
   background: var(--card);
   border: 1px solid var(--border);
@@ -255,8 +255,8 @@ button:focus-visible {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
@@ -272,14 +272,14 @@ button:focus-visible {
 .section-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
 }
 
 .summary-pill {
   border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 13px;
+  padding: 4px 10px;
+  font-size: 11px;
   font-weight: 600;
   background: rgba(34, 197, 94, 0.16);
   color: #166534;
@@ -308,15 +308,15 @@ button:focus-visible {
 
 .calendar-controls {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .range {
   text-align: center;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border-radius: var(--radius-sm);
   background: var(--card);
   border: 1px solid var(--border);
@@ -325,30 +325,30 @@ button:focus-visible {
 
 .range-title {
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .range-sub {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 4px;
 }
 
 .calendar-grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .day-card {
   background: var(--card);
   border-radius: var(--radius-md);
-  padding: 16px;
+  padding: 12px;
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-height: 210px;
+  gap: 10px;
+  min-height: 180px;
   box-shadow: var(--shadow-soft);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -389,7 +389,7 @@ body[data-theme="dark"] .day-card.is-empty {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .day-status {
@@ -399,11 +399,11 @@ body[data-theme="dark"] .day-card.is-empty {
 }
 
 .day-chip {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
   color: var(--muted);
@@ -423,23 +423,23 @@ body[data-theme="dark"] .day-card.is-empty {
 }
 
 .day-card h3 {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .day-card .date {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--muted);
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .field label,
 .field span {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--muted);
   font-weight: 600;
   text-transform: uppercase;
@@ -447,9 +447,9 @@ body[data-theme="dark"] .day-card.is-empty {
 }
 
 .field input {
-  font-size: 16px;
-  padding: 12px 12px;
-  border-radius: 10px;
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: rgba(248, 250, 252, 0.8);
   color: var(--text);
@@ -466,7 +466,7 @@ body[data-theme="dark"] .field input {
 }
 
 .btn {
-  padding: 10px 18px;
+  padding: 8px 14px;
   border-radius: 999px;
   border: none;
   background: var(--primary);
@@ -475,7 +475,7 @@ body[data-theme="dark"] .field input {
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.2s ease, background 0.2s ease;
   box-shadow: 0 8px 16px rgba(239, 106, 82, 0.25);
-  min-height: 44px;
+  min-height: 38px;
 }
 
 .btn:hover {
@@ -505,23 +505,23 @@ body[data-theme="dark"] .field input {
 }
 
 .btn.small {
-  padding: 6px 12px;
-  font-size: 13px;
-  min-height: 36px;
+  padding: 4px 10px;
+  font-size: 11px;
+  min-height: 30px;
 }
 
 .shopping {
-  padding-bottom: 40px;
+  padding-bottom: 28px;
 }
 
 .shopping-card {
   background: var(--card);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 18px;
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   box-shadow: var(--shadow);
 }
 
@@ -534,7 +534,7 @@ body[data-theme="dark"] .field input {
 }
 
 .shopping-card h2 {
-  font-size: 20px;
+  font-size: 16px;
   margin-bottom: 6px;
 }
 
@@ -545,20 +545,20 @@ body[data-theme="dark"] .field input {
 .shopping-form {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-end;
 }
 
 .shopping-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .empty-state {
   display: none;
   margin: 0;
-  padding: 12px 16px;
+  padding: 10px 12px;
   border-radius: var(--radius-md);
   border: 1px dashed var(--border);
   color: var(--muted);
@@ -575,7 +575,7 @@ body[data-theme="dark"] .empty-state {
 
 .shopping-form .field {
   flex: 1;
-  min-width: 220px;
+  min-width: 190px;
 }
 
 .shopping-list {
@@ -584,7 +584,7 @@ body[data-theme="dark"] .empty-state {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .shopping-category {
@@ -592,10 +592,10 @@ body[data-theme="dark"] .empty-state {
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: rgba(248, 250, 252, 0.6);
-  padding: 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 body[data-theme="dark"] .shopping-category {
@@ -612,22 +612,22 @@ body[data-theme="dark"] .shopping-category {
 }
 
 .shopping-category__title {
-  font-size: 14px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .shopping-category__count {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--muted);
   background: rgba(226, 232, 240, 0.8);
   border-radius: 999px;
-  padding: 4px 8px;
+  padding: 3px 6px;
 }
 
 .shopping-category__actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin-left: auto;
   flex-wrap: wrap;
 }
@@ -637,8 +637,8 @@ body[data-theme="dark"] .shopping-category {
   background: transparent;
   color: var(--text);
   border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 4px 8px;
+  font-size: 10px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -648,8 +648,8 @@ body[data-theme="dark"] .shopping-category {
 }
 
 .shopping-category__accent {
-  width: 46px;
-  height: 6px;
+  width: 38px;
+  height: 5px;
   border-radius: 999px;
   background: var(--category-accent, var(--primary));
 }
@@ -660,7 +660,7 @@ body[data-theme="dark"] .shopping-category {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .shopping-category.is-collapsed .shopping-category__list {
@@ -668,7 +668,7 @@ body[data-theme="dark"] .shopping-category {
 }
 
 .shopping-item {
-  padding: 14px 16px;
+  padding: 10px 12px;
   border-radius: var(--radius-sm);
   background: rgba(248, 250, 252, 0.9);
   border: 1px solid var(--border);
@@ -677,7 +677,7 @@ body[data-theme="dark"] .shopping-category {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -699,7 +699,7 @@ body[data-theme="dark"] .shopping-item {
 }
 
 .shopping-item__icon {
-  font-size: 1.1em;
+  font-size: 1em;
   opacity: 0.8;
 }
 
@@ -719,11 +719,11 @@ body[data-theme="dark"] .shopping-item__select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-radius: 999px;
   background: var(--category-accent, var(--primary));
   color: #ffffff;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -739,7 +739,7 @@ body[data-theme="dark"] .shopping-item__select {
 .shopping-item__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .shopping-action {
@@ -748,8 +748,8 @@ body[data-theme="dark"] .shopping-item__select {
   color: var(--text);
   font-weight: 700;
   border-radius: 999px;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -788,22 +788,22 @@ body[data-theme="dark"] .shopping-item.is-checked {
 }
 
 .recipes {
-  padding-bottom: 40px;
+  padding-bottom: 28px;
 }
 
 .recipes-card {
   background: var(--card);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 18px;
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   box-shadow: var(--shadow);
 }
 
 .recipes-card h2 {
-  font-size: 20px;
+  font-size: 16px;
   margin-bottom: 6px;
 }
 
@@ -814,23 +814,23 @@ body[data-theme="dark"] .shopping-item.is-checked {
 .recipes-form {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-end;
 }
 
 .recipes-form .field {
   flex: 1;
-  min-width: 220px;
+  min-width: 190px;
 }
 
 .recipe-ingredients-panel {
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
-  padding: 12px 16px;
+  padding: 10px 12px;
   background: rgba(248, 250, 252, 0.6);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 body[data-theme="dark"] .recipe-ingredients-panel {
@@ -842,7 +842,7 @@ body[data-theme="dark"] .recipe-ingredients-panel {
 }
 
 .recipe-ingredients-title {
-  font-size: 12px;
+  font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-weight: 700;
@@ -855,7 +855,7 @@ body[data-theme="dark"] .recipe-ingredients-panel {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .recipes-list {
@@ -864,17 +864,17 @@ body[data-theme="dark"] .recipe-ingredients-panel {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .recipe-item {
-  padding: 16px;
+  padding: 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--recipe-border);
   background: rgba(248, 250, 252, 0.8);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   box-shadow: var(--shadow-soft);
 }
 
@@ -888,17 +888,17 @@ body[data-theme="dark"] .recipe-item {
 
 .recipe-title {
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .recipe-ingredients {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .recipe-ingredients__title {
-  font-size: 12px;
+  font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-weight: 700;
@@ -911,22 +911,22 @@ body[data-theme="dark"] .recipe-item {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .recipe-ingredient-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 
 .recipe-ingredient-controls__input {
   flex: 1;
-  min-width: 200px;
-  font-size: 14px;
-  padding: 8px 10px;
-  border-radius: 10px;
+  min-width: 180px;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: rgba(248, 250, 252, 0.9);
   color: var(--text);
@@ -939,10 +939,10 @@ body[data-theme="dark"] .recipe-ingredient-controls__input {
 .recipe-ingredient {
   display: grid;
   grid-template-columns: 1fr auto auto auto;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.7);
 }
@@ -980,11 +980,11 @@ body[data-theme="dark"] .recipe-ingredient.is-included {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-radius: 999px;
   background: var(--category-accent, var(--primary));
   color: #ffffff;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1006,8 +1006,8 @@ body[data-theme="dark"] .recipe-ingredient.is-included {
 .recipe-ingredient__toggle {
   border: 1px solid var(--border);
   border-radius: 999px;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1015,7 +1015,7 @@ body[data-theme="dark"] .recipe-ingredient.is-included {
   color: var(--text);
   cursor: pointer;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .recipe-ingredient__toggle[aria-pressed="false"] {
@@ -1026,8 +1026,8 @@ body[data-theme="dark"] .recipe-ingredient.is-included {
 .recipe-ingredient__remove {
   border: none;
   border-radius: 999px;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1044,7 +1044,7 @@ body[data-theme="dark"] .recipe-ingredient__remove {
 .recipe-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 16px;
+  gap: 8px 12px;
   align-items: flex-end;
 }
 
@@ -1052,8 +1052,8 @@ body[data-theme="dark"] .recipe-ingredient__remove {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 140px;
-  font-size: 12px;
+  min-width: 120px;
+  font-size: 10px;
   color: var(--muted);
   font-weight: 600;
   text-transform: uppercase;
@@ -1062,9 +1062,9 @@ body[data-theme="dark"] .recipe-ingredient__remove {
 
 .recipe-field input,
 .recipe-field select {
-  font-size: 15px;
-  padding: 10px 12px;
-  border-radius: 10px;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: rgba(248, 250, 252, 0.8);
   color: var(--text);
@@ -1189,13 +1189,13 @@ body[data-theme="dark"] .recipe-field select {
   }
 
   .day-card {
-    min-height: 220px;
+    min-height: 190px;
   }
 }
 
 @media (max-width: 720px) {
   .topbar {
-    padding: 18px;
+    padding: 14px;
   }
 
   .calendar-controls {
@@ -1217,7 +1217,7 @@ body[data-theme="dark"] .recipe-field select {
 
 @media (max-width: 640px) {
   .app-shell {
-    padding: 16px;
+    padding: 14px;
   }
 
   .calendar-grid {
@@ -1225,7 +1225,7 @@ body[data-theme="dark"] .recipe-field select {
   }
 
   .day-card {
-    min-height: 180px;
+    min-height: 160px;
   }
 }
 
