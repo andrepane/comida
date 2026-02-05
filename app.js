@@ -485,7 +485,8 @@ function normalizeRecipeIngredients(ingredients) {
   return ingredients
     .map((ingredient) => ({
       label: ingredient?.label?.trim() ?? "",
-      categoryId: ingredient?.categoryId || ""
+      categoryId: ingredient?.categoryId || "",
+      includeInShopping: ingredient?.includeInShopping !== false
     }))
     .filter((ingredient) => ingredient.label);
 }
@@ -495,7 +496,7 @@ function getRecipeIngredientCategoryId(label, categoryId) {
 }
 
 function buildRecipeIngredientItem(ingredient, options = {}) {
-  const { onRemove, onCategoryChange } = options;
+  const { onRemove, onCategoryChange, onToggleInclude } = options;
   const item = document.createElement("li");
   item.className = "recipe-ingredient";
 
@@ -505,6 +506,9 @@ function buildRecipeIngredientItem(ingredient, options = {}) {
 
   const categoryId = getRecipeIngredientCategoryId(ingredient.label, ingredient.categoryId);
   item.dataset.category = categoryId;
+  const isIncluded = ingredient.includeInShopping !== false;
+  item.dataset.includeInShopping = String(isIncluded);
+  item.classList.toggle("is-excluded", !isIncluded);
 
   const categoryLabel = document.createElement("span");
   categoryLabel.className = "recipe-ingredient__category-label";
@@ -537,6 +541,22 @@ function buildRecipeIngredientItem(ingredient, options = {}) {
 
   categoryWrapper.append(categoryLabel, select);
 
+  const toggleIncludeButton = document.createElement("button");
+  toggleIncludeButton.type = "button";
+  toggleIncludeButton.className = "recipe-ingredient__toggle";
+  toggleIncludeButton.setAttribute("aria-label", "Añadir a la lista de la compra");
+  toggleIncludeButton.setAttribute("aria-pressed", String(isIncluded));
+  toggleIncludeButton.textContent = "✓";
+  toggleIncludeButton.addEventListener("click", () => {
+    const nextIncluded = item.dataset.includeInShopping !== "true";
+    item.dataset.includeInShopping = String(nextIncluded);
+    item.classList.toggle("is-excluded", !nextIncluded);
+    toggleIncludeButton.setAttribute("aria-pressed", String(nextIncluded));
+    if (onToggleInclude) {
+      onToggleInclude(nextIncluded);
+    }
+  });
+
   const removeButton = document.createElement("button");
   removeButton.type = "button";
   removeButton.className = "recipe-ingredient__remove";
@@ -549,7 +569,7 @@ function buildRecipeIngredientItem(ingredient, options = {}) {
     }
   });
 
-  item.append(label, categoryWrapper, removeButton);
+  item.append(label, categoryWrapper, toggleIncludeButton, removeButton);
   return item;
 }
 
@@ -563,7 +583,8 @@ function getRecipeIngredientsFromList(listElement) {
   if (!listElement) return [];
   return Array.from(listElement.querySelectorAll(".recipe-ingredient")).map((item) => ({
     label: item.querySelector(".recipe-ingredient__label")?.textContent?.trim() ?? "",
-    categoryId: item.dataset.category || ""
+    categoryId: item.dataset.category || "",
+    includeInShopping: item.dataset.includeInShopping !== "false"
   })).filter((ingredient) => ingredient.label);
 }
 
@@ -1139,7 +1160,7 @@ function addRecipeIngredientsToShopping(ingredients) {
   if (!Array.isArray(ingredients) || !ingredients.length) return;
   ingredients.forEach((ingredient) => {
     const label = ingredient?.label?.trim();
-    if (!label) return;
+    if (!label || ingredient.includeInShopping === false) return;
     addShoppingItem(label, {
       categoryId: getRecipeIngredientCategoryId(label, ingredient.categoryId),
       shouldPersist: false
@@ -1183,6 +1204,9 @@ function addRecipeItem(recipe, options = {}) {
       },
       onCategoryChange: () => {
         persistRecipes();
+      },
+      onToggleInclude: () => {
+        persistRecipes();
       }
     });
     ingredientsList.append(ingredientItem);
@@ -1211,6 +1235,9 @@ function addRecipeItem(recipe, options = {}) {
         persistRecipes();
       },
       onCategoryChange: () => {
+        persistRecipes();
+      },
+      onToggleInclude: () => {
         persistRecipes();
       }
     });
