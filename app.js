@@ -43,6 +43,7 @@ const recipeIngredientAdd = document.getElementById("recipeIngredientAdd");
 const recipeIngredientsList = document.getElementById("recipeIngredientsList");
 const recipesList = document.getElementById("recipesList");
 const recipesEmpty = document.getElementById("recipesEmpty");
+const hoursModeEl = document.getElementById("hoursMode");
 const viewButtons = document.querySelectorAll(".switch-btn");
 const viewPanels = document.querySelectorAll(".view-panel");
 const statusBadge = document.querySelector(".status-badge");
