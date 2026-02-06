@@ -1201,15 +1201,48 @@ function planRecipeForDate({ recipeTitle, dateValue, meal }) {
 
 function addRecipeIngredientsToShopping(ingredients) {
   if (!Array.isArray(ingredients) || !ingredients.length) return;
-  ingredients.forEach((ingredient) => {
+  const existingLabels = new Set(
+    Array.from(shoppingList?.querySelectorAll(".shopping-item__label") ?? [])
+      .map((item) => item.textContent?.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const normalizedIngredients = ingredients
+    .map((ingredient) => {
+      const label = ingredient?.label?.trim();
+      if (!label || ingredient.includeInShopping === false) return null;
+      return {
+        label,
+        normalizedLabel: label.toLowerCase(),
+        categoryId: getRecipeIngredientCategoryId(label, ingredient.categoryId)
+      };
+    })
+    .filter(Boolean);
+  if (!normalizedIngredients.length) return;
+
+  const duplicateLabels = normalizedIngredients
+    .filter((ingredient) => existingLabels.has(ingredient.normalizedLabel))
+    .map((ingredient) => ingredient.label);
+  let includeDuplicates = true;
+  if (duplicateLabels.length) {
+    includeDuplicates = window.confirm(
+      `Ya tienes en la lista: ${duplicateLabels.join(", ")}. ¿Quieres añadirlos igualmente?`
+    );
+  }
+
+  let addedAny = false;
+  normalizedIngredients.forEach((ingredient) => {
+    if (!includeDuplicates && existingLabels.has(ingredient.normalizedLabel)) return;
     const label = ingredient?.label?.trim();
-    if (!label || ingredient.includeInShopping === false) return;
+    if (!label) return;
     addShoppingItem(label, {
-      categoryId: getRecipeIngredientCategoryId(label, ingredient.categoryId),
+      categoryId: ingredient.categoryId,
       shouldPersist: false
     });
+    addedAny = true;
   });
-  persistShoppingList();
+  if (addedAny) {
+    persistShoppingList();
+  }
 }
 
 function closeRecipeModal(item) {
