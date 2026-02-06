@@ -45,6 +45,22 @@ const recipesSearchInput = document.getElementById("recipesSearchInput");
 const recipesList = document.getElementById("recipesList");
 const recipesEmpty = document.getElementById("recipesEmpty");
 const recipesSearchEmpty = document.getElementById("recipesSearchEmpty");
+const recipesApiForm = document.getElementById("recipesApiForm");
+const recipesApiInput = document.getElementById("recipesApiInput");
+const recipesApiButton = document.getElementById("recipesApiButton");
+const recipesApiStatus = document.getElementById("recipesApiStatus");
+const recipesApiEmpty = document.getElementById("recipesApiEmpty");
+const recipesApiResults = document.getElementById("recipesApiResults");
+const recipeDetailModal = document.getElementById("recipeDetailModal");
+const recipeDetailClose = document.getElementById("recipeDetailClose");
+const recipeDetailTitle = document.getElementById("recipeDetailTitle");
+const recipeDetailImage = document.getElementById("recipeDetailImage");
+const recipeDetailMeta = document.getElementById("recipeDetailMeta");
+const recipeDetailIngredients = document.getElementById("recipeDetailIngredients");
+const recipeDetailInstructions = document.getElementById("recipeDetailInstructions");
+const recipeDetailAddShopping = document.getElementById("recipeDetailAddShopping");
+const recipeDetailSave = document.getElementById("recipeDetailSave");
+const recipeDetailStatus = document.getElementById("recipeDetailStatus");
 const hoursModeEl = document.getElementById("hoursMode");
 const viewButtons = document.querySelectorAll(".switch-btn");
 const viewPanels = document.querySelectorAll(".view-panel");
@@ -117,6 +133,9 @@ const state = {
   pendingSaves: 0,
   inFlight: 0,
   lastError: null,
+  recipeSearchLoading: false,
+  recipeSearchCooldownAt: 0,
+  activeRecipeDetail: null,
   remoteNoticeTimer: null,
   seenDays: new Set()
 };
@@ -437,12 +456,45 @@ function normalizeText(value) {
   return value.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
 }
 
+async function postJson(url, payload) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error("Bad response");
+  }
+  return response.json();
+}
+
+async function searchRecipes(query) {
+  const data = await postJson(RECIPES_SEARCH_ENDPOINT, { q: query });
+  if (!data || !Array.isArray(data.recipes)) {
+    throw new Error("Malformed response");
+  }
+  return data.recipes;
+}
+
+async function getRecipeDetail(id) {
+  const data = await postJson(RECIPES_DETAIL_ENDPOINT, { id });
+  if (!data || typeof data !== "object" || !data.id) {
+    throw new Error("Malformed response");
+  }
+  return data;
+}
+
 const CUSTOM_CATEGORIES_KEY = "customCategories";
 const CUSTOM_CATEGORIES_DOC_ID = "customCategories";
 const SHOPPING_ITEMS_KEY = "shoppingItems";
 const SHOPPING_ITEMS_DOC_ID = "items";
 const RECIPES_KEY = "recipes";
 const RECIPES_DOC_ID = "items";
+const RECIPES_SEARCH_ENDPOINT =
+  "https://magicloops.dev/api/loop/b4dddb5f-36c2-4568-8688-3b4f6b751ced/run";
+const RECIPES_DETAIL_ENDPOINT =
+  "https://magicloops.dev/api/loop/7e8cf3c5-2de9-4aa8-aeea-72dbfbbca9bf/run";
+const RECIPE_SEARCH_THROTTLE_MS = 500;
 
 function loadCustomCategories() {
   try {
@@ -1195,6 +1247,227 @@ function addRecipeIngredientsToShopping(ingredients) {
   persistShoppingList();
 }
 
+function setInlineStatus(element, message, tone = "default") {
+  if (!element) return;
+  element.textContent = message;
+  element.classList.toggle("is-error", tone === "error");
+}
+
+function setRecipesApiStatus(message, tone) {
+  setInlineStatus(recipesApiStatus, message, tone);
+}
+
+function setRecipeDetailStatus(message, tone) {
+  setInlineStatus(recipeDetailStatus, message, tone);
+}
+
+function setRecipesSearchLoading(isLoading) {
+  state.recipeSearchLoading = isLoading;
+  if (recipesApiButton) {
+    recipesApiButton.disabled = isLoading;
+    recipesApiButton.textContent = isLoading ? "Buscando…" : "Buscar";
+  }
+}
+
+function updateRecipesApiEmptyState(shouldShow) {
+  if (!recipesApiEmpty) return;
+  recipesApiEmpty.classList.toggle("is-visible", shouldShow);
+}
+
+function renderRecipeResults(recipes) {
+  if (!recipesApiResults) return;
+  recipesApiResults.innerHTML = "";
+  recipes.forEach((recipe) => {
+    const item = document.createElement("li");
+    item.className = "recipe-result";
+
+    const media = document.createElement("div");
+    media.className = "recipe-result__media";
+    if (recipe.image) {
+      const img = document.createElement("img");
+      img.src = recipe.image;
+      img.alt = recipe.title || "Receta";
+      media.append(img);
+    } else {
+      media.textContent = "Sin imagen";
+    }
+
+    const body = document.createElement("div");
+    const title = document.createElement("div");
+    title.className = "recipe-result__title";
+    title.textContent = recipe.title || "Receta sin título";
+    body.append(title);
+
+    const actions = document.createElement("div");
+    actions.className = "recipe-result__actions";
+
+    const viewButton = document.createElement("button");
+    viewButton.type = "button";
+    viewButton.className = "btn ghost small";
+    viewButton.textContent = "Ver";
+    viewButton.addEventListener("click", () => {
+      openRecipeDetailById(recipe.id);
+    });
+
+    const saveButton = document.createElement("button");
+    saveButton.type = "button";
+    saveButton.className = "btn secondary small";
+    saveButton.textContent = "Guardar";
+    saveButton.addEventListener("click", () => {
+      saveRecipeFromSearch(recipe.id);
+    });
+
+    actions.append(viewButton, saveButton);
+
+    item.append(media, body, actions);
+    recipesApiResults.append(item);
+  });
+  updateRecipesApiEmptyState(recipes.length === 0);
+}
+
+function openRecipeDetailModal() {
+  if (!recipeDetailModal) return;
+  recipeDetailModal.classList.add("is-visible");
+  recipeDetailModal.setAttribute("aria-hidden", "false");
+}
+
+function closeRecipeDetailModal() {
+  if (!recipeDetailModal) return;
+  recipeDetailModal.classList.remove("is-visible");
+  recipeDetailModal.setAttribute("aria-hidden", "true");
+}
+
+function formatRecipeMeta(detail) {
+  const parts = [];
+  if (detail.readyInMinutes) {
+    parts.push(`Listo en ${detail.readyInMinutes} min`);
+  }
+  if (detail.servings) {
+    parts.push(`Raciones: ${detail.servings}`);
+  }
+  return parts.length ? parts.join(" • ") : "Detalles no disponibles.";
+}
+
+function renderRecipeDetail(detail) {
+  if (recipeDetailTitle) {
+    recipeDetailTitle.textContent = detail.title || "Receta";
+  }
+  if (recipeDetailImage) {
+    if (detail.image) {
+      recipeDetailImage.src = detail.image;
+      recipeDetailImage.alt = detail.title || "Imagen de la receta";
+      recipeDetailImage.style.display = "block";
+    } else {
+      recipeDetailImage.removeAttribute("src");
+      recipeDetailImage.alt = "";
+      recipeDetailImage.style.display = "none";
+    }
+  }
+  if (recipeDetailMeta) {
+    recipeDetailMeta.textContent = formatRecipeMeta(detail);
+  }
+  if (recipeDetailIngredients) {
+    recipeDetailIngredients.innerHTML = "";
+    if (Array.isArray(detail.ingredients) && detail.ingredients.length) {
+      detail.ingredients.forEach((ingredient) => {
+        const item = document.createElement("li");
+        item.textContent = ingredient;
+        recipeDetailIngredients.append(item);
+      });
+    } else {
+      const item = document.createElement("li");
+      item.textContent = "Sin ingredientes disponibles.";
+      recipeDetailIngredients.append(item);
+    }
+  }
+  if (recipeDetailInstructions) {
+    recipeDetailInstructions.textContent =
+      detail.instructions?.trim() || "Esta receta no incluye instrucciones.";
+  }
+}
+
+function isRecipeAlreadySaved(id) {
+  if (!recipesList) return false;
+  return Boolean(recipesList.querySelector(`.recipe-item[data-recipe-id="${id}"]`));
+}
+
+function saveRecipeFavorite(detail) {
+  if (!detail?.title) return false;
+  const recipeId = String(detail.id);
+  if (isRecipeAlreadySaved(recipeId)) {
+    setRecipeDetailStatus("Esta receta ya está guardada.", "error");
+    return false;
+  }
+  const ingredients = Array.isArray(detail.ingredients)
+    ? detail.ingredients.map((label) => ({ label }))
+    : [];
+  addRecipeItem({
+    id: recipeId,
+    title: detail.title,
+    ingredients,
+    image: detail.image || "",
+    readyInMinutes: detail.readyInMinutes ?? null,
+    servings: detail.servings ?? null
+  });
+  setRecipeDetailStatus("Receta guardada en favoritas.");
+  return true;
+}
+
+function addIngredientsToShoppingList(ingredients) {
+  if (!Array.isArray(ingredients) || !ingredients.length) {
+    setRecipeDetailStatus("No hay ingredientes para añadir.", "error");
+    return;
+  }
+  const existing = new Set(
+    Array.from(shoppingList?.querySelectorAll(".shopping-item__label") || [])
+      .map((label) => label.textContent.trim())
+      .filter(Boolean)
+  );
+  let added = 0;
+  ingredients.forEach((ingredient) => {
+    const label = ingredient?.trim();
+    if (!label || existing.has(label)) return;
+    addShoppingItem(label, { shouldPersist: false });
+    existing.add(label);
+    added += 1;
+  });
+  if (added > 0) {
+    persistShoppingList();
+    setRecipeDetailStatus(`Añadidos ${added} ingredientes a la lista.`);
+  } else {
+    setRecipeDetailStatus("Los ingredientes ya estaban en la lista.");
+  }
+}
+
+async function openRecipeDetailById(id) {
+  if (!id) return;
+  setRecipeDetailStatus("Cargando detalle…");
+  openRecipeDetailModal();
+  try {
+    const detail = await getRecipeDetail(id);
+    state.activeRecipeDetail = detail;
+    renderRecipeDetail(detail);
+    setRecipeDetailStatus("");
+  } catch {
+    setRecipeDetailStatus("No se pudo cargar el detalle.", "error");
+  }
+}
+
+async function saveRecipeFromSearch(id) {
+  if (!id) return;
+  setRecipesApiStatus("Guardando receta…");
+  try {
+    const detail = await getRecipeDetail(id);
+    state.activeRecipeDetail = detail;
+    renderRecipeDetail(detail);
+    openRecipeDetailModal();
+    saveRecipeFavorite(detail);
+    setRecipesApiStatus("Receta guardada.");
+  } catch {
+    setRecipesApiStatus("No se pudo guardar la receta.", "error");
+  }
+}
+
 function addRecipeItem(recipe, options = {}) {
   if (!recipesList) return;
   const { shouldPersist = true } = options;
@@ -1426,6 +1699,60 @@ function initRecipesList() {
   applyRecipesFilter();
 }
 
+function initRecipesSearch() {
+  if (!recipesApiForm || !recipesApiInput) return;
+  recipesApiForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const query = recipesApiInput.value.trim();
+    if (!query) {
+      setRecipesApiStatus("Escribe algo para buscar.", "error");
+      return;
+    }
+    const now = Date.now();
+    if (state.recipeSearchLoading || now - state.recipeSearchCooldownAt < RECIPE_SEARCH_THROTTLE_MS) {
+      return;
+    }
+    state.recipeSearchCooldownAt = now;
+    setRecipesSearchLoading(true);
+    setRecipesApiStatus("Buscando…");
+    updateRecipesApiEmptyState(false);
+    try {
+      const results = await searchRecipes(query);
+      renderRecipeResults(results);
+      setRecipesApiStatus(results.length ? "" : "No encontramos resultados.");
+    } catch {
+      setRecipesApiStatus("No se pudo buscar recetas.", "error");
+    } finally {
+      setRecipesSearchLoading(false);
+    }
+  });
+}
+
+function initRecipeDetailModal() {
+  if (recipeDetailClose) {
+    recipeDetailClose.addEventListener("click", closeRecipeDetailModal);
+  }
+  if (recipeDetailModal) {
+    recipeDetailModal.addEventListener("click", (event) => {
+      if (event.target === recipeDetailModal) {
+        closeRecipeDetailModal();
+      }
+    });
+  }
+  if (recipeDetailAddShopping) {
+    recipeDetailAddShopping.addEventListener("click", () => {
+      if (!state.activeRecipeDetail) return;
+      addIngredientsToShoppingList(state.activeRecipeDetail.ingredients || []);
+    });
+  }
+  if (recipeDetailSave) {
+    recipeDetailSave.addEventListener("click", () => {
+      if (!state.activeRecipeDetail) return;
+      saveRecipeFavorite(state.activeRecipeDetail);
+    });
+  }
+}
+
 function setActiveView(viewId) {
   viewPanels.forEach((panel) => {
     panel.classList.toggle("is-active", panel.id === viewId);
@@ -1612,5 +1939,7 @@ onAuthStateChanged(auth, (user) => {
 updateStatus();
 initShoppingList();
 initRecipesList();
+initRecipesSearch();
+initRecipeDetailModal();
 initViewSwitcher();
 initThemeToggle();
