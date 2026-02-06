@@ -495,6 +495,17 @@ function normalizeRecipeIngredients(ingredients) {
     .filter((ingredient) => ingredient.label);
 }
 
+function serializeRecipesForCompare(recipes) {
+  if (!Array.isArray(recipes)) return "[]";
+  return JSON.stringify(
+    recipes.map((recipe) => ({
+      id: recipe?.id ?? "",
+      title: recipe?.title?.trim() ?? "",
+      ingredients: normalizeRecipeIngredients(recipe?.ingredients)
+    }))
+  );
+}
+
 function getRecipeIngredientCategoryId(label, categoryId) {
   return categoryId || getCustomCategory(label) || getShoppingCategory(label);
 }
@@ -700,6 +711,11 @@ function initRecipesSync() {
       if (localRecipes.length) {
         saveRecipesRemote();
       }
+      return;
+    }
+    const localSerialized = serializeRecipesForCompare(loadRecipes());
+    const remoteSerialized = serializeRecipesForCompare(data.recipes);
+    if (localSerialized === remoteSerialized) {
       return;
     }
     replaceRecipes(data.recipes);
