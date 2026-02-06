@@ -114,6 +114,7 @@ const state = {
   recipesSaveTimer: null,
   recipesFilter: "",
   dayElements: new Map(),
+  activeRecipeModal: null,
   pendingSaves: 0,
   inFlight: 0,
   lastError: null,
@@ -1195,6 +1196,33 @@ function addRecipeIngredientsToShopping(ingredients) {
   persistShoppingList();
 }
 
+function closeRecipeModal(item) {
+  if (!item) return;
+  item.classList.remove("is-open");
+  document.body.classList.remove("has-recipe-modal");
+  const trigger = item.querySelector(".recipe-card");
+  if (trigger) {
+    trigger.setAttribute("aria-expanded", "false");
+  }
+  if (state.activeRecipeModal === item) {
+    state.activeRecipeModal = null;
+  }
+}
+
+function openRecipeModal(item) {
+  if (!item) return;
+  if (state.activeRecipeModal && state.activeRecipeModal !== item) {
+    closeRecipeModal(state.activeRecipeModal);
+  }
+  item.classList.add("is-open");
+  document.body.classList.add("has-recipe-modal");
+  const trigger = item.querySelector(".recipe-card");
+  if (trigger) {
+    trigger.setAttribute("aria-expanded", "true");
+  }
+  state.activeRecipeModal = item;
+}
+
 function addRecipeItem(recipe, options = {}) {
   if (!recipesList) return;
   const { shouldPersist = true } = options;
@@ -1204,14 +1232,25 @@ function addRecipeItem(recipe, options = {}) {
   item.dataset.recipeId = recipe.id;
   item.dataset.recipeTitle = recipe.title.toLowerCase();
 
-  const main = document.createElement("div");
-  main.className = "recipe-main";
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "recipe-card";
+  card.setAttribute("aria-haspopup", "dialog");
+  card.setAttribute("aria-expanded", "false");
 
-  const title = document.createElement("span");
-  title.className = "recipe-title";
-  title.textContent = recipe.title;
+  const cardMedia = document.createElement("div");
+  cardMedia.className = "recipe-card__media";
+  const cardIcon = document.createElement("span");
+  cardIcon.className = "recipe-card__icon";
+  cardIcon.setAttribute("aria-hidden", "true");
+  cardIcon.textContent = "🍲";
+  cardMedia.append(cardIcon);
 
-  main.append(title);
+  const cardTitle = document.createElement("span");
+  cardTitle.className = "recipe-card__title recipe-title";
+  cardTitle.textContent = recipe.title;
+
+  card.append(cardMedia, cardTitle);
 
   const ingredientsWrapper = document.createElement("div");
   ingredientsWrapper.className = "recipe-ingredients";
@@ -1313,7 +1352,7 @@ function addRecipeItem(recipe, options = {}) {
   const addButton = document.createElement("button");
   addButton.type = "button";
   addButton.className = "btn secondary small";
-  addButton.textContent = "Añadir";
+  addButton.textContent = "Añadir al calendario";
   addButton.addEventListener("click", () => {
     planRecipeForDate({
       recipeTitle: recipe.title,
@@ -1321,6 +1360,7 @@ function addRecipeItem(recipe, options = {}) {
       meal: mealSelect.value
     });
     addRecipeIngredientsToShopping(getRecipeIngredientsFromList(ingredientsList));
+    closeRecipeModal(item);
   });
 
   const deleteButton = document.createElement("button");
@@ -1332,10 +1372,56 @@ function addRecipeItem(recipe, options = {}) {
     updateRecipesEmptyState();
     applyRecipesFilter();
     persistRecipes();
+    closeRecipeModal(item);
   });
 
   actions.append(dateField, mealField, addButton, deleteButton);
-  item.append(main, ingredientsWrapper, actions);
+
+  const modal = document.createElement("div");
+  modal.className = "recipe-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-label", `Receta ${recipe.title}`);
+
+  const modalBackdrop = document.createElement("button");
+  modalBackdrop.type = "button";
+  modalBackdrop.className = "recipe-modal__backdrop";
+  modalBackdrop.setAttribute("aria-label", "Cerrar receta");
+  modalBackdrop.addEventListener("click", () => {
+    closeRecipeModal(item);
+  });
+
+  const modalContent = document.createElement("div");
+  modalContent.className = "recipe-modal__content";
+
+  const modalHeader = document.createElement("div");
+  modalHeader.className = "recipe-modal__header";
+
+  const modalTitle = document.createElement("h3");
+  modalTitle.textContent = recipe.title;
+
+  const modalClose = document.createElement("button");
+  modalClose.type = "button";
+  modalClose.className = "recipe-modal__close";
+  modalClose.textContent = "Cerrar";
+  modalClose.addEventListener("click", () => {
+    closeRecipeModal(item);
+  });
+
+  modalHeader.append(modalTitle, modalClose);
+
+  const modalBody = document.createElement("div");
+  modalBody.className = "recipe-modal__body";
+  modalBody.append(ingredientsWrapper, actions);
+
+  modalContent.append(modalHeader, modalBody);
+  modal.append(modalBackdrop, modalContent);
+
+  card.addEventListener("click", () => {
+    openRecipeModal(item);
+  });
+
+  item.append(card, modal);
   recipesList.append(item);
   updateRecipesEmptyState();
   applyRecipesFilter();
@@ -1584,6 +1670,13 @@ function updateShoppingEmptyState() {
   const totalItems = shoppingList.querySelectorAll(".shopping-item").length;
   shoppingEmpty.classList.toggle("is-visible", totalItems === 0);
 }
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (state.activeRecipeModal) {
+    closeRecipeModal(state.activeRecipeModal);
+  }
+});
 
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
