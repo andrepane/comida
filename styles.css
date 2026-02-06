@@ -1184,8 +1184,14 @@ body[data-theme="dark"] .recipe-field select {
 }
 
 @media (min-width: 900px) {
+  .calendar-wrapper {
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+
   .calendar-grid {
     grid-template-columns: repeat(7, 1fr);
+    min-width: 1050px;
   }
 
   .day-card {
