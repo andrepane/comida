@@ -111,6 +111,18 @@
               <p>Guarda tus recetas favoritas y súbelas rápido al calendario.</p>
             </div>
           </header>
+          <div class="recipes-search-card">
+            <form class="recipes-search-form" id="recipeSearchForm">
+              <label class="field">
+                <span>Buscar recetas online</span>
+                <input id="recipeSearchInput" type="search" placeholder="Ej: Pollo, pasta..." autocomplete="off" />
+              </label>
+              <button class="btn secondary" type="submit" id="recipeSearchButton">Buscar</button>
+            </form>
+            <p class="recipes-search-status" id="recipeSearchStatus" aria-live="polite"></p>
+            <p class="recipes-search-error" id="recipeSearchError" role="alert"></p>
+            <ul class="recipes-search-results" id="recipeSearchResults" aria-live="polite"></ul>
+          </div>
           <form class="recipes-form" id="recipesForm">
             <label class="field">
               <span>Nueva receta</span>
@@ -137,6 +149,40 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="modal" id="recipeDetailModal" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-overlay" data-close></div>
+    <div class="modal-content" role="document">
+      <button class="modal-close" type="button" data-close aria-label="Cerrar">✕</button>
+      <div class="recipe-detail">
+        <div class="recipe-detail__header">
+          <img id="recipeDetailImage" alt="" loading="lazy" />
+          <div>
+            <h3 id="recipeDetailTitle"></h3>
+            <p class="recipe-detail__meta">
+              <span id="recipeDetailTime"></span>
+              <span id="recipeDetailServings"></span>
+            </p>
+          </div>
+        </div>
+        <div class="recipe-detail__body">
+          <h4>Ingredientes</h4>
+          <ul id="recipeDetailIngredients"></ul>
+          <h4>Instrucciones</h4>
+          <p id="recipeDetailInstructions"></p>
+        </div>
+        <div class="recipe-detail__actions">
+          <button class="btn secondary" type="button" id="recipeDetailAddShopping">
+            Añadir ingredientes a lista de la compra
+          </button>
+          <button class="btn ghost" type="button" id="recipeDetailSaveFavorite">
+            Guardar en favoritas
+          </button>
+        </div>
+        <p class="recipe-detail__status" id="recipeDetailStatus" aria-live="polite"></p>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="app.js"></script>

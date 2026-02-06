@@ -45,6 +45,22 @@ const recipesSearchInput = document.getElementById("recipesSearchInput");
 const recipesList = document.getElementById("recipesList");
 const recipesEmpty = document.getElementById("recipesEmpty");
 const recipesSearchEmpty = document.getElementById("recipesSearchEmpty");
+const recipeSearchForm = document.getElementById("recipeSearchForm");
+const recipeSearchInput = document.getElementById("recipeSearchInput");
+const recipeSearchButton = document.getElementById("recipeSearchButton");
+const recipeSearchResults = document.getElementById("recipeSearchResults");
+const recipeSearchStatus = document.getElementById("recipeSearchStatus");
+const recipeSearchError = document.getElementById("recipeSearchError");
+const recipeDetailModal = document.getElementById("recipeDetailModal");
+const recipeDetailImage = document.getElementById("recipeDetailImage");
+const recipeDetailTitle = document.getElementById("recipeDetailTitle");
+const recipeDetailTime = document.getElementById("recipeDetailTime");
+const recipeDetailServings = document.getElementById("recipeDetailServings");
+const recipeDetailIngredients = document.getElementById("recipeDetailIngredients");
+const recipeDetailInstructions = document.getElementById("recipeDetailInstructions");
+const recipeDetailAddShopping = document.getElementById("recipeDetailAddShopping");
+const recipeDetailSaveFavorite = document.getElementById("recipeDetailSaveFavorite");
+const recipeDetailStatus = document.getElementById("recipeDetailStatus");
 const hoursModeEl = document.getElementById("hoursMode");
 const viewButtons = document.querySelectorAll(".switch-btn");
 const viewPanels = document.querySelectorAll(".view-panel");
@@ -58,6 +74,9 @@ const clearCheckedBtn = document.getElementById("clearChecked");
 const collapseAllBtn = document.getElementById("collapseAllCategories");
 
 const SHARED_CALENDAR_ID = "calendario-compartido";
+const DEBUG = false;
+const MAGICLOOPS_SEARCH_URL = "https://magicloops.dev/api/loop/b4dddb5f-36c2-4568-8688-3b4f6b751ced/run";
+const MAGICLOOPS_DETAIL_URL = "https://magicloops.dev/api/loop/7e8cf3c5-2de9-4aa8-aeea-72dbfbbca9bf/run";
 const SHOPPING_CATEGORIES = [
   { id: "carne", label: "Carne" },
   { id: "pescado", label: "Pescado" },
@@ -113,6 +132,8 @@ const state = {
   recipesUnsubscribe: null,
   recipesSaveTimer: null,
   recipesFilter: "",
+  recipeSearchLoading: false,
+  recipeDetail: null,
   dayElements: new Map(),
   pendingSaves: 0,
   inFlight: 0,
@@ -435,6 +456,48 @@ function initCalendar() {
 
 function normalizeText(value) {
   return value.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
+
+async function searchRecipes(q) {
+  if (!q) return [];
+  const response = await fetch(MAGICLOOPS_SEARCH_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ q })
+  });
+  if (!response.ok) {
+    throw new Error("No se pudo buscar recetas.");
+  }
+  const data = await response.json();
+  if (DEBUG) {
+    console.log("MagicLoops search response", data);
+  }
+  const recipes = data?.results?.recipes;
+  if (!Array.isArray(recipes)) {
+    console.warn("Respuesta inesperada al buscar recetas.", data);
+    return [];
+  }
+  return recipes;
+}
+
+async function getRecipeDetail(id) {
+  const response = await fetch(MAGICLOOPS_DETAIL_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ id })
+  });
+  if (!response.ok) {
+    throw new Error("No se pudo cargar el detalle.");
+  }
+  const detail = await response.json();
+  if (!detail?.instructions || detail.instructions.trim() === "") {
+    detail.instructions = "Esta receta no incluye instrucciones.";
+  }
+  return detail;
 }
 
 const CUSTOM_CATEGORIES_KEY = "customCategories";
@@ -1182,6 +1245,22 @@ function planRecipeForDate({ recipeTitle, dateValue, meal }) {
   showCalendarNotice(`Receta añadida a ${formatDayName(date)}.`);
 }
 
+function addIngredientsToShoppingList(ingredients) {
+  if (!Array.isArray(ingredients) || !ingredients.length || !shoppingList) return;
+  const existingLabels = new Set(
+    Array.from(shoppingList.querySelectorAll(".shopping-item__label")).map((item) =>
+      item.textContent?.trim() ?? ""
+    )
+  );
+  ingredients.forEach((ingredient) => {
+    const label = ingredient?.trim();
+    if (!label || existingLabels.has(label)) return;
+    existingLabels.add(label);
+    addShoppingItem(label, { shouldPersist: false });
+  });
+  persistShoppingList();
+}
+
 function addRecipeIngredientsToShopping(ingredients) {
   if (!Array.isArray(ingredients) || !ingredients.length) return;
   ingredients.forEach((ingredient) => {
@@ -1193,6 +1272,48 @@ function addRecipeIngredientsToShopping(ingredients) {
     });
   });
   persistShoppingList();
+}
+
+function getRecipeDetailIngredients(detail) {
+  if (!Array.isArray(detail?.ingredients)) return [];
+  return detail.ingredients
+    .map((label) => label?.trim())
+    .filter(Boolean);
+}
+
+function getNormalizedDetailIngredients(detail) {
+  return getRecipeDetailIngredients(detail).map((label) => ({
+    label,
+    categoryId: getRecipeIngredientCategoryId(label, ""),
+    includeInShopping: true
+  }));
+}
+
+function getSavedRecipes() {
+  return getRecipesFromDom();
+}
+
+function isRecipeAlreadySaved(recipeId) {
+  if (!recipeId) return false;
+  const saved = getSavedRecipes();
+  return saved.some((recipe) => String(recipe.id) === String(recipeId));
+}
+
+function saveRecipeFromDetail(detail) {
+  if (!detail?.id || !detail?.title) return false;
+  if (isRecipeAlreadySaved(detail.id)) {
+    return false;
+  }
+  const ingredients = getNormalizedDetailIngredients(detail);
+  addRecipeItem({
+    id: String(detail.id),
+    title: detail.title,
+    image: detail.image,
+    readyInMinutes: detail.readyInMinutes ?? null,
+    servings: detail.servings ?? null,
+    ingredients
+  });
+  return true;
 }
 
 function addRecipeItem(recipe, options = {}) {
@@ -1341,6 +1462,227 @@ function addRecipeItem(recipe, options = {}) {
   applyRecipesFilter();
   if (shouldPersist) {
     persistRecipes();
+  }
+}
+
+function setRecipeSearchLoading(isLoading) {
+  state.recipeSearchLoading = isLoading;
+  if (recipeSearchButton) {
+    recipeSearchButton.disabled = isLoading;
+  }
+  if (recipeSearchInput) {
+    recipeSearchInput.disabled = isLoading;
+  }
+}
+
+function updateRecipeSearchStatus(message = "") {
+  if (recipeSearchStatus) {
+    recipeSearchStatus.textContent = message;
+  }
+}
+
+function updateRecipeSearchError(message = "") {
+  if (recipeSearchError) {
+    recipeSearchError.textContent = message;
+  }
+}
+
+function clearRecipeSearchResults() {
+  if (recipeSearchResults) {
+    recipeSearchResults.innerHTML = "";
+  }
+}
+
+function renderRecipeSearchResults(recipes) {
+  if (!recipeSearchResults) return;
+  clearRecipeSearchResults();
+  recipes.forEach((recipe) => {
+    const item = document.createElement("li");
+    item.className = "recipe-result";
+
+    const image = document.createElement("img");
+    image.className = "recipe-result__image";
+    image.alt = recipe.title || "Receta";
+    image.loading = "lazy";
+    if (recipe.image) {
+      image.src = recipe.image;
+    }
+
+    const body = document.createElement("div");
+    body.className = "recipe-result__body";
+
+    const title = document.createElement("div");
+    title.className = "recipe-result__title";
+    title.textContent = recipe.title || "Receta";
+
+    const actions = document.createElement("div");
+    actions.className = "recipe-result__actions";
+
+    const viewButton = document.createElement("button");
+    viewButton.type = "button";
+    viewButton.className = "btn ghost small";
+    viewButton.textContent = "Ver";
+    viewButton.addEventListener("click", () => {
+      if (state.recipeSearchLoading) return;
+      openRecipeDetail(recipe.id);
+    });
+
+    const saveButton = document.createElement("button");
+    saveButton.type = "button";
+    saveButton.className = "btn secondary small";
+    saveButton.textContent = "Guardar";
+    saveButton.addEventListener("click", async () => {
+      if (state.recipeSearchLoading) return;
+      try {
+        setRecipeSearchLoading(true);
+        const detail = await getRecipeDetail(recipe.id);
+        const saved = saveRecipeFromDetail(detail);
+        updateRecipeSearchStatus(saved ? "Receta guardada en favoritas." : "Esta receta ya estaba guardada.");
+      } catch (error) {
+        updateRecipeSearchError("No se pudo guardar la receta.");
+      } finally {
+        setRecipeSearchLoading(false);
+      }
+    });
+
+    actions.append(viewButton, saveButton);
+    body.append(title, actions);
+    item.append(image, body);
+    recipeSearchResults.append(item);
+  });
+}
+
+function openRecipeDetailModal() {
+  if (!recipeDetailModal) return;
+  recipeDetailModal.classList.add("is-visible");
+  recipeDetailModal.setAttribute("aria-hidden", "false");
+}
+
+function closeRecipeDetailModal() {
+  if (!recipeDetailModal) return;
+  recipeDetailModal.classList.remove("is-visible");
+  recipeDetailModal.setAttribute("aria-hidden", "true");
+  updateRecipeDetailStatus("");
+}
+
+function updateRecipeDetailStatus(message) {
+  if (recipeDetailStatus) {
+    recipeDetailStatus.textContent = message;
+  }
+}
+
+async function openRecipeDetail(recipeId) {
+  try {
+    setRecipeSearchLoading(true);
+    updateRecipeSearchError("");
+    updateRecipeSearchStatus("Cargando receta...");
+    const detail = await getRecipeDetail(recipeId);
+    state.recipeDetail = detail;
+    if (recipeDetailImage) {
+      recipeDetailImage.src = detail.image || "";
+      recipeDetailImage.alt = detail.title || "Receta";
+    }
+    if (recipeDetailTitle) {
+      recipeDetailTitle.textContent = detail.title || "Receta";
+    }
+    if (recipeDetailTime) {
+      recipeDetailTime.textContent = detail.readyInMinutes
+        ? `${detail.readyInMinutes} min`
+        : "Tiempo no disponible";
+    }
+    if (recipeDetailServings) {
+      recipeDetailServings.textContent = detail.servings
+        ? `${detail.servings} raciones`
+        : "Raciones no disponibles";
+    }
+    if (recipeDetailIngredients) {
+      recipeDetailIngredients.innerHTML = "";
+      getRecipeDetailIngredients(detail).forEach((ingredient) => {
+        const item = document.createElement("li");
+        item.textContent = ingredient;
+        recipeDetailIngredients.append(item);
+      });
+    }
+    if (recipeDetailInstructions) {
+      recipeDetailInstructions.textContent = detail.instructions;
+    }
+    updateRecipeDetailStatus("");
+    updateRecipeSearchStatus("");
+    openRecipeDetailModal();
+  } catch (error) {
+    updateRecipeSearchError("No se pudo cargar el detalle.");
+  } finally {
+    setRecipeSearchLoading(false);
+  }
+}
+
+function initRecipeDetailModal() {
+  if (!recipeDetailModal) return;
+  const closeElements = recipeDetailModal.querySelectorAll("[data-close]");
+  closeElements.forEach((element) => {
+    element.addEventListener("click", closeRecipeDetailModal);
+  });
+  recipeDetailModal.addEventListener("click", (event) => {
+    if (event.target === recipeDetailModal) {
+      closeRecipeDetailModal();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeRecipeDetailModal();
+    }
+  });
+}
+
+function initRecipeSearch() {
+  if (!recipeSearchForm || !recipeSearchInput) return;
+  recipeSearchForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (state.recipeSearchLoading) return;
+    const query = recipeSearchInput.value.trim();
+    updateRecipeSearchError("");
+    if (!query) {
+      updateRecipeSearchStatus("Escribe algo para buscar.");
+      return;
+    }
+    try {
+      setRecipeSearchLoading(true);
+      updateRecipeSearchStatus("Buscando...");
+      clearRecipeSearchResults();
+      const recipes = await searchRecipes(query);
+      if (!recipes.length) {
+        updateRecipeSearchStatus("No se han encontrado recetas.");
+      } else {
+        updateRecipeSearchStatus(`${recipes.length} recetas encontradas.`);
+      }
+      renderRecipeSearchResults(recipes);
+    } catch (error) {
+      updateRecipeSearchError("No se pudieron cargar las recetas.");
+      updateRecipeSearchStatus("");
+      clearRecipeSearchResults();
+    } finally {
+      setRecipeSearchLoading(false);
+    }
+  });
+}
+
+function initRecipeDetailActions() {
+  if (recipeDetailAddShopping) {
+    recipeDetailAddShopping.addEventListener("click", () => {
+      const detail = state.recipeDetail;
+      if (!detail) return;
+      const ingredients = getRecipeDetailIngredients(detail);
+      addIngredientsToShoppingList(ingredients);
+      updateRecipeDetailStatus("Ingredientes añadidos a la lista de la compra.");
+    });
+  }
+  if (recipeDetailSaveFavorite) {
+    recipeDetailSaveFavorite.addEventListener("click", () => {
+      const detail = state.recipeDetail;
+      if (!detail) return;
+      const saved = saveRecipeFromDetail(detail);
+      updateRecipeDetailStatus(saved ? "Receta guardada en favoritas." : "Esta receta ya estaba guardada.");
+    });
   }
 }
 
@@ -1612,5 +1954,8 @@ onAuthStateChanged(auth, (user) => {
 updateStatus();
 initShoppingList();
 initRecipesList();
+initRecipeSearch();
+initRecipeDetailModal();
+initRecipeDetailActions();
 initViewSwitcher();
 initThemeToggle();
