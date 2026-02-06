@@ -1148,6 +1148,16 @@ function addShoppingItem(value, options = {}) {
   }
 }
 
+function findShoppingItemByLabel(value) {
+  if (!shoppingList) return null;
+  const normalizedValue = normalizeText(value.trim());
+  if (!normalizedValue) return null;
+  return Array.from(shoppingList.querySelectorAll(".shopping-item")).find((item) => {
+    const label = item.querySelector(".shopping-item__label")?.textContent ?? "";
+    return normalizeText(label.trim()) === normalizedValue;
+  });
+}
+
 function updateRecipesEmptyState() {
   if (!recipesEmpty || !recipesList) return;
   const totalItems = recipesList.querySelectorAll(".recipe-item").length;
@@ -1493,6 +1503,13 @@ function initShoppingList() {
     event.preventDefault();
     const value = shoppingInput.value.trim();
     if (!value) return;
+    const existingItem = findShoppingItemByLabel(value);
+    if (existingItem) {
+      shoppingInput.value = "";
+      shoppingInput.focus();
+      existingItem.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     addShoppingItem(value);
     shoppingInput.value = "";
     shoppingInput.focus();
