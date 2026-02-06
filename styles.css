@@ -338,6 +338,7 @@ button:focus-visible {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  width: 100%;
 }
 
 .day-card {
@@ -1185,7 +1186,7 @@ body[data-theme="dark"] .recipe-field select {
 
 @media (min-width: 900px) {
   .calendar-grid {
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 
   .day-card {
