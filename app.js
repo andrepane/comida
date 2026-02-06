@@ -688,6 +688,7 @@ async function saveRecipesRemote() {
 
 function replaceRecipes(recipes) {
   if (!recipesList) return;
+  const activeRecipeId = state.activeRecipeModal?.dataset?.recipeId ?? null;
   recipesList.innerHTML = "";
   recipes.forEach((recipe) => {
     if (recipe?.title) {
@@ -696,6 +697,13 @@ function replaceRecipes(recipes) {
   });
   updateRecipesEmptyState();
   persistRecipes({ syncRemote: false });
+  if (activeRecipeId) {
+    const nextActive = Array.from(recipesList.querySelectorAll(".recipe-item"))
+      .find((item) => item.dataset.recipeId === activeRecipeId);
+    if (nextActive) {
+      openRecipeModal(nextActive);
+    }
+  }
 }
 
 function initRecipesSync() {
