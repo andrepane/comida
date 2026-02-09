@@ -111,6 +111,18 @@
             </label>
             <button class="btn secondary" type="submit">Añadir</button>
           </form>
+          <details class="shopping-suggestions" id="shoppingSuggestions">
+            <summary>
+              <span>Sugerencias rápidas</span>
+              <span class="shopping-suggestions__meta">Más añadidos en esta sesión</span>
+            </summary>
+            <div class="shopping-suggestions__content">
+              <p class="shopping-suggestions__empty" id="shoppingSuggestionsEmpty">
+                Todavía no has añadido ingredientes. Empieza a crear tu lista para ver sugerencias.
+              </p>
+              <ul class="shopping-suggestions__list" id="shoppingSuggestionsList" aria-live="polite"></ul>
+            </div>
+          </details>
           <p class="empty-state" id="shoppingEmpty">Tu lista está vacía. Añade lo básico para arrancar.</p>
           <ul class="shopping-list" id="shoppingList" aria-live="polite"></ul>
         </div>
