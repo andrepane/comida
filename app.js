@@ -115,6 +115,7 @@ const state = {
   customCategoriesSaveTimer: null,
   shoppingItemsUnsubscribe: null,
   shoppingItemsSaveTimer: null,
+  shoppingItemsLocalUpdatedAt: null,
   shoppingSuggestionsUnsubscribe: null,
   shoppingSuggestionsSaveTimer: null,
   shoppingSuggestions: new Map(),
@@ -789,6 +790,25 @@ function saveShoppingSuggestions(suggestions) {
 
 state.shoppingSuggestions = loadShoppingSuggestions();
 
+function getShoppingItemsFromDom() {
+  if (!shoppingList) return [];
+  return Array.from(shoppingList.querySelectorAll(".shopping-item")).map((item) => ({
+    label: item.querySelector(".shopping-item__label")?.textContent ?? "",
+    categoryId: item.dataset.category || "otros",
+    checked: item.classList.contains("is-checked")
+  }));
+}
+
+function serializeShoppingItems(items) {
+  return JSON.stringify(
+    items.map((item) => ({
+      label: item.label ?? "",
+      categoryId: item.categoryId ?? "otros",
+      checked: Boolean(item.checked)
+    }))
+  );
+}
+
 function serializeShoppingSuggestions(suggestions) {
   const list = Array.from(suggestions.entries())
     .map(([key, value]) => ({
@@ -823,12 +843,12 @@ function renderShoppingSuggestions() {
     const item = document.createElement("li");
     item.className = "shopping-suggestions__item";
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "shopping-suggestions__button";
-    button.setAttribute("aria-label", `Añadir ${suggestion.label}`);
-    button.textContent = suggestion.label;
-    button.addEventListener("click", () => {
+    const addButton = document.createElement("button");
+    addButton.type = "button";
+    addButton.className = "shopping-suggestions__button";
+    addButton.setAttribute("aria-label", `Añadir ${suggestion.label}`);
+    addButton.textContent = suggestion.label;
+    addButton.addEventListener("click", () => {
       const existingItem = findShoppingItemByLabel(suggestion.label);
       if (existingItem) {
         existingItem.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -837,7 +857,16 @@ function renderShoppingSuggestions() {
       addShoppingItem(suggestion.label);
     });
 
-    item.append(button);
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "shopping-suggestions__remove";
+    removeButton.setAttribute("aria-label", `Eliminar sugerencia ${suggestion.label}`);
+    removeButton.textContent = "×";
+    removeButton.addEventListener("click", () => {
+      removeShoppingSuggestion(suggestion.label);
+    });
+
+    item.append(addButton, removeButton);
     shoppingSuggestionsList.append(item);
   });
 }
@@ -861,14 +890,21 @@ function recordShoppingSuggestion(label) {
   renderShoppingSuggestions();
 }
 
-function persistShoppingList({ syncRemote = true } = {}) {
+function removeShoppingSuggestion(label) {
+  const normalized = normalizeText(label.trim());
+  if (!normalized || !state.shoppingSuggestions.has(normalized)) return;
+  state.shoppingSuggestions.delete(normalized);
+  persistShoppingSuggestions();
+  renderShoppingSuggestions();
+}
+
+function persistShoppingList({ syncRemote = true, updateTimestamp = true } = {}) {
   if (!shoppingList) return;
-  const items = Array.from(shoppingList.querySelectorAll(".shopping-item")).map((item) => ({
-    label: item.querySelector(".shopping-item__label")?.textContent ?? "",
-    categoryId: item.dataset.category || "otros",
-    checked: item.classList.contains("is-checked")
-  }));
+  const items = getShoppingItemsFromDom();
   saveShoppingItems(items);
+  if (updateTimestamp) {
+    state.shoppingItemsLocalUpdatedAt = Date.now();
+  }
   if (syncRemote) {
     scheduleShoppingItemsSave();
   }
@@ -941,8 +977,9 @@ async function saveShoppingSuggestionsRemote() {
   }
 }
 
-function replaceShoppingItems(items) {
+function replaceShoppingItems(items, options = {}) {
   if (!shoppingList) return;
+  const { updateTimestamp = false, remoteUpdatedAt = 0 } = options;
   shoppingList.innerHTML = "";
   items.forEach((item) => {
     if (item?.label) {
@@ -955,7 +992,10 @@ function replaceShoppingItems(items) {
     }
   });
   updateShoppingEmptyState();
-  persistShoppingList({ syncRemote: false });
+  persistShoppingList({ syncRemote: false, updateTimestamp: false });
+  if (updateTimestamp && Number.isFinite(remoteUpdatedAt) && remoteUpdatedAt > 0) {
+    state.shoppingItemsLocalUpdatedAt = remoteUpdatedAt;
+  }
 }
 
 function applyShoppingSuggestions(suggestions) {
@@ -1038,7 +1078,21 @@ function initShoppingItemsSync() {
       }
       return;
     }
-    replaceShoppingItems(data.items);
+    const remoteUpdatedAt =
+      data.updatedAt?.toMillis?.() ??
+      (Number.isFinite(data.updatedAt?.seconds) ? data.updatedAt.seconds * 1000 : 0);
+    const localUpdatedAt = Number.isFinite(state.shoppingItemsLocalUpdatedAt)
+      ? state.shoppingItemsLocalUpdatedAt
+      : 0;
+    const localSerialized = serializeShoppingItems(getShoppingItemsFromDom());
+    const remoteSerialized = serializeShoppingItems(data.items);
+    if (localSerialized === remoteSerialized) {
+      return;
+    }
+    if (localUpdatedAt && remoteUpdatedAt && remoteUpdatedAt < localUpdatedAt) {
+      return;
+    }
+    replaceShoppingItems(data.items, { updateTimestamp: true, remoteUpdatedAt });
   });
 }
 
