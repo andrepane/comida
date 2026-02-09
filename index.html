@@ -46,19 +46,17 @@
         <span class="brand-icon" aria-hidden="true">🍽️</span>
         <div>
           <h1>Tuppería</h1>
-          <p>Planifica comida y cena para las próximas dos semanas.</p>
         </div>
       </div>
       <div class="topbar-actions">
-        <button class="theme-toggle" type="button" id="themeToggle" aria-pressed="false">
-          Modo oscuro
+        <button class="theme-toggle" type="button" id="themeToggle" aria-pressed="false" aria-label="Cambiar a modo oscuro">
+          <i class="fa-solid fa-moon" aria-hidden="true"></i>
         </button>
         <div class="status-stack">
-          <div class="status-badge is-preparing">
+          <div class="status-badge is-preparing" role="status" aria-live="polite">
             <span class="status-dot" aria-hidden="true"></span>
-            <span id="syncStatus">Preparando…</span>
+            <span id="syncStatus" class="visually-hidden">Preparando…</span>
           </div>
-          <p class="sync-hint" id="syncHint" role="status" aria-live="polite"></p>
         </div>
       </div>
     </header>
@@ -68,7 +66,6 @@
         <header class="section-header">
           <div>
             <h2 id="calendarTitle">Calendario</h2>
-            <p>Organiza las comidas y cenas con claridad semana a semana.</p>
           </div>
           <div class="section-actions">
             <span class="summary-pill" id="emptyDaysPill">—</span>
