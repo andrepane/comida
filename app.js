@@ -115,6 +115,8 @@ const state = {
   customCategoriesSaveTimer: null,
   shoppingItemsUnsubscribe: null,
   shoppingItemsSaveTimer: null,
+  shoppingSuggestionsUnsubscribe: null,
+  shoppingSuggestionsSaveTimer: null,
   shoppingSuggestions: new Map(),
   recipesUnsubscribe: null,
   recipesSaveTimer: null,
@@ -448,6 +450,8 @@ const CUSTOM_CATEGORIES_KEY = "customCategories";
 const CUSTOM_CATEGORIES_DOC_ID = "customCategories";
 const SHOPPING_ITEMS_KEY = "shoppingItems";
 const SHOPPING_ITEMS_DOC_ID = "items";
+const SHOPPING_SUGGESTIONS_KEY = "shoppingSuggestions";
+const SHOPPING_SUGGESTIONS_DOC_ID = "suggestions";
 const RECIPES_KEY = "recipes";
 const RECIPES_DOC_ID = "items";
 const SHOPPING_SUGGESTIONS_LIMIT = 8;
@@ -478,6 +482,10 @@ function getCustomCategoriesDocRef() {
 
 function getShoppingItemsDocRef() {
   return doc(db, "calendars", state.calendarId, "shopping", SHOPPING_ITEMS_DOC_ID);
+}
+
+function getShoppingSuggestionsDocRef() {
+  return doc(db, "calendars", state.calendarId, "shopping", SHOPPING_SUGGESTIONS_DOC_ID);
 }
 
 function getRecipesDocRef() {
@@ -750,6 +758,49 @@ function saveShoppingItems(items) {
   localStorage.setItem(SHOPPING_ITEMS_KEY, JSON.stringify(items));
 }
 
+function loadShoppingSuggestions() {
+  try {
+    const stored = localStorage.getItem(SHOPPING_SUGGESTIONS_KEY);
+    const parsed = stored ? JSON.parse(stored) : [];
+    if (!Array.isArray(parsed)) return new Map();
+    const map = new Map();
+    parsed.forEach((suggestion) => {
+      if (!suggestion?.label) return;
+      const normalized = normalizeText(suggestion.label);
+      if (!normalized) return;
+      const count = Number.isFinite(suggestion.count) ? suggestion.count : 0;
+      const lastAdded = Number.isFinite(suggestion.lastAdded) ? suggestion.lastAdded : 0;
+      map.set(normalized, {
+        label: suggestion.label,
+        count: Math.max(0, count),
+        lastAdded
+      });
+    });
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+function saveShoppingSuggestions(suggestions) {
+  const stored = Array.from(suggestions.values());
+  localStorage.setItem(SHOPPING_SUGGESTIONS_KEY, JSON.stringify(stored));
+}
+
+state.shoppingSuggestions = loadShoppingSuggestions();
+
+function serializeShoppingSuggestions(suggestions) {
+  const list = Array.from(suggestions.entries())
+    .map(([key, value]) => ({
+      key,
+      label: value.label,
+      count: value.count,
+      lastAdded: value.lastAdded
+    }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+  return JSON.stringify(list);
+}
+
 function getShoppingSuggestions() {
   return Array.from(state.shoppingSuggestions.values())
     .sort((a, b) => {
@@ -777,12 +828,6 @@ function renderShoppingSuggestions() {
     button.className = "shopping-suggestions__button";
     button.setAttribute("aria-label", `Añadir ${suggestion.label}`);
     button.textContent = suggestion.label;
-
-    const count = document.createElement("span");
-    count.className = "shopping-suggestions__count";
-    count.textContent = `${suggestion.count}x`;
-
-    button.append(count);
     button.addEventListener("click", () => {
       const existingItem = findShoppingItemByLabel(suggestion.label);
       if (existingItem) {
@@ -812,6 +857,7 @@ function recordShoppingSuggestion(label) {
     count: current.count + 1,
     lastAdded: Date.now()
   });
+  persistShoppingSuggestions();
   renderShoppingSuggestions();
 }
 
@@ -828,6 +874,13 @@ function persistShoppingList({ syncRemote = true } = {}) {
   }
 }
 
+function persistShoppingSuggestions({ syncRemote = true } = {}) {
+  saveShoppingSuggestions(state.shoppingSuggestions);
+  if (syncRemote) {
+    scheduleShoppingSuggestionsSave();
+  }
+}
+
 function scheduleShoppingItemsSave() {
   if (!state.userId) return;
   if (state.shoppingItemsSaveTimer) {
@@ -836,6 +889,17 @@ function scheduleShoppingItemsSave() {
   state.shoppingItemsSaveTimer = setTimeout(() => {
     state.shoppingItemsSaveTimer = null;
     saveShoppingItemsRemote();
+  }, 400);
+}
+
+function scheduleShoppingSuggestionsSave() {
+  if (!state.userId) return;
+  if (state.shoppingSuggestionsSaveTimer) {
+    clearTimeout(state.shoppingSuggestionsSaveTimer);
+  }
+  state.shoppingSuggestionsSaveTimer = setTimeout(() => {
+    state.shoppingSuggestionsSaveTimer = null;
+    saveShoppingSuggestionsRemote();
   }, 400);
 }
 
@@ -848,6 +912,25 @@ async function saveShoppingItemsRemote() {
       docRef,
       {
         items,
+        updatedAt: serverTimestamp(),
+        updatedBy: state.userId
+      },
+      { merge: true }
+    );
+  } catch {
+    // Silencioso: los cambios locales ya están guardados y se reintentarán.
+  }
+}
+
+async function saveShoppingSuggestionsRemote() {
+  if (!state.userId || !state.calendarId) return;
+  const docRef = getShoppingSuggestionsDocRef();
+  const suggestions = Array.from(state.shoppingSuggestions.values());
+  try {
+    await setDoc(
+      docRef,
+      {
+        suggestions,
         updatedAt: serverTimestamp(),
         updatedBy: state.userId
       },
@@ -873,6 +956,12 @@ function replaceShoppingItems(items) {
   });
   updateShoppingEmptyState();
   persistShoppingList({ syncRemote: false });
+}
+
+function applyShoppingSuggestions(suggestions) {
+  state.shoppingSuggestions = suggestions;
+  saveShoppingSuggestions(state.shoppingSuggestions);
+  renderShoppingSuggestions();
 }
 
 function getCustomCategory(value) {
@@ -950,6 +1039,42 @@ function initShoppingItemsSync() {
       return;
     }
     replaceShoppingItems(data.items);
+  });
+}
+
+function initShoppingSuggestionsSync() {
+  if (!state.userId || !state.calendarId) return;
+  if (state.shoppingSuggestionsUnsubscribe) {
+    state.shoppingSuggestionsUnsubscribe();
+  }
+  const docRef = getShoppingSuggestionsDocRef();
+  state.shoppingSuggestionsUnsubscribe = onSnapshot(docRef, (snapshot) => {
+    const data = snapshot.data();
+    if (!data?.suggestions) {
+      if (state.shoppingSuggestions.size) {
+        saveShoppingSuggestionsRemote();
+      }
+      return;
+    }
+    const incoming = new Map();
+    data.suggestions.forEach((suggestion) => {
+      if (!suggestion?.label) return;
+      const normalized = normalizeText(suggestion.label);
+      if (!normalized) return;
+      const count = Number.isFinite(suggestion.count) ? suggestion.count : 0;
+      const lastAdded = Number.isFinite(suggestion.lastAdded) ? suggestion.lastAdded : 0;
+      incoming.set(normalized, {
+        label: suggestion.label,
+        count: Math.max(0, count),
+        lastAdded
+      });
+    });
+    const localSerialized = serializeShoppingSuggestions(state.shoppingSuggestions);
+    const remoteSerialized = serializeShoppingSuggestions(incoming);
+    if (localSerialized === remoteSerialized) {
+      return;
+    }
+    applyShoppingSuggestions(incoming);
   });
 }
 
@@ -1902,6 +2027,7 @@ onAuthStateChanged(auth, (user) => {
   initCalendar();
   initCustomCategoriesSync();
   initShoppingItemsSync();
+  initShoppingSuggestionsSync();
   initRecipesSync();
 });
 
