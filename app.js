@@ -1610,11 +1610,41 @@ function initViewSwitcher() {
 }
 
 function openMenu() {
+  if (menuBackdrop) {
+    menuBackdrop.style.display = "block";
+    menuBackdrop.setAttribute("aria-hidden", "false");
+  }
   document.body.classList.add("is-menu-open");
 }
 
 function closeMenu() {
   document.body.classList.remove("is-menu-open");
+  if (menuBackdrop) {
+    menuBackdrop.setAttribute("aria-hidden", "true");
+    window.setTimeout(() => {
+      if (!document.body.classList.contains("is-menu-open")) {
+        menuBackdrop.style.display = "none";
+      }
+    }, 220);
+  }
+  forceIOSRepaintAfterMenu();
+}
+
+function isIOSDevice() {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+function forceIOSRepaintAfterMenu() {
+  if (!isIOSDevice()) return;
+  requestAnimationFrame(() => {
+    document.body.style.transform = "translateZ(0)";
+    requestAnimationFrame(() => {
+      document.body.style.transform = "";
+    });
+  });
 }
 
 function applyTheme(theme) {
