@@ -1621,13 +1621,15 @@ function applyTheme(theme) {
   if (theme === "dark") {
     document.body.setAttribute("data-theme", "dark");
     if (themeToggle) {
-      themeToggle.textContent = "Modo claro";
+      themeToggle.innerHTML = "<i class=\"fa-solid fa-sun\" aria-hidden=\"true\"></i>";
+      themeToggle.setAttribute("aria-label", "Cambiar a modo claro");
       themeToggle.setAttribute("aria-pressed", "true");
     }
   } else {
     document.body.removeAttribute("data-theme");
     if (themeToggle) {
-      themeToggle.textContent = "Modo oscuro";
+      themeToggle.innerHTML = "<i class=\"fa-solid fa-moon\" aria-hidden=\"true\"></i>";
+      themeToggle.setAttribute("aria-label", "Cambiar a modo oscuro");
       themeToggle.setAttribute("aria-pressed", "false");
     }
   }

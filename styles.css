@@ -47,11 +47,15 @@ body {
   overflow-x: hidden;
 }
 
+html {
+  background: var(--bg);
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  padding: 0 0 48px;
+  padding: env(safe-area-inset-top) 0 calc(48px + env(safe-area-inset-bottom));
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
 }
@@ -225,54 +229,36 @@ body[data-theme="dark"] .icon-btn:hover {
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  padding: 0;
   border-radius: 999px;
-  font-weight: 600;
-  font-size: 12px;
-  border: 1px solid transparent;
-  background: rgba(248, 250, 252, 0.9);
-  color: #0f172a;
-}
-
-body[data-theme="dark"] .status-badge {
-  background: rgba(30, 41, 59, 0.9);
-  color: #f8fafc;
+  border: none;
+  background: transparent;
+  color: var(--muted);
 }
 
 .status-badge.is-preparing {
-  background: rgba(56, 189, 248, 0.18);
-  color: #0369a1;
-  border-color: rgba(56, 189, 248, 0.4);
+  color: #f59e0b;
 }
 
 .status-badge.is-saving {
-  background: rgba(251, 191, 36, 0.18);
-  color: #b45309;
-  border-color: rgba(251, 191, 36, 0.4);
+  color: #f59e0b;
 }
 
 .status-badge.is-saved {
-  background: rgba(34, 197, 94, 0.18);
-  color: #15803d;
-  border-color: rgba(34, 197, 94, 0.4);
+  color: #22c55e;
 }
 
 .status-badge.is-offline {
-  background: rgba(248, 113, 113, 0.18);
-  color: #b91c1c;
-  border-color: rgba(248, 113, 113, 0.4);
+  color: #ef4444;
 }
 
 .status-badge.is-error {
-  background: rgba(249, 115, 22, 0.18);
-  color: #c2410c;
-  border-color: rgba(249, 115, 22, 0.4);
+  color: #ef4444;
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: currentColor;
 }
@@ -280,9 +266,13 @@ body[data-theme="dark"] .status-badge {
 .theme-toggle {
   border: 1px solid var(--border);
   background: transparent;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-weight: 600;
+  border-radius: 50%;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   color: var(--text);
   transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
@@ -305,6 +295,18 @@ button:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .section-switch {
