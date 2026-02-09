@@ -36,6 +36,9 @@ const shoppingForm = document.getElementById("shoppingForm");
 const shoppingInput = document.getElementById("shoppingInput");
 const shoppingList = document.getElementById("shoppingList");
 const shoppingEmpty = document.getElementById("shoppingEmpty");
+const shoppingSuggestions = document.getElementById("shoppingSuggestions");
+const shoppingSuggestionsList = document.getElementById("shoppingSuggestionsList");
+const shoppingSuggestionsEmpty = document.getElementById("shoppingSuggestionsEmpty");
 const recipesForm = document.getElementById("recipesForm");
 const recipesInput = document.getElementById("recipesInput");
 const recipeIngredientInput = document.getElementById("recipeIngredientInput");
@@ -112,6 +115,7 @@ const state = {
   customCategoriesSaveTimer: null,
   shoppingItemsUnsubscribe: null,
   shoppingItemsSaveTimer: null,
+  shoppingSuggestions: new Map(),
   recipesUnsubscribe: null,
   recipesSaveTimer: null,
   recipesFilter: "",
@@ -446,6 +450,7 @@ const SHOPPING_ITEMS_KEY = "shoppingItems";
 const SHOPPING_ITEMS_DOC_ID = "items";
 const RECIPES_KEY = "recipes";
 const RECIPES_DOC_ID = "items";
+const SHOPPING_SUGGESTIONS_LIMIT = 8;
 
 function loadCustomCategories() {
   try {
@@ -745,6 +750,71 @@ function saveShoppingItems(items) {
   localStorage.setItem(SHOPPING_ITEMS_KEY, JSON.stringify(items));
 }
 
+function getShoppingSuggestions() {
+  return Array.from(state.shoppingSuggestions.values())
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return b.lastAdded - a.lastAdded;
+    })
+    .slice(0, SHOPPING_SUGGESTIONS_LIMIT);
+}
+
+function renderShoppingSuggestions() {
+  if (!shoppingSuggestionsList || !shoppingSuggestionsEmpty) return;
+  const suggestions = getShoppingSuggestions();
+  shoppingSuggestionsList.innerHTML = "";
+  if (!suggestions.length) {
+    shoppingSuggestionsEmpty.style.display = "block";
+    return;
+  }
+  shoppingSuggestionsEmpty.style.display = "none";
+  suggestions.forEach((suggestion) => {
+    const item = document.createElement("li");
+    item.className = "shopping-suggestions__item";
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "shopping-suggestions__button";
+    button.setAttribute("aria-label", `Añadir ${suggestion.label}`);
+    button.textContent = suggestion.label;
+
+    const count = document.createElement("span");
+    count.className = "shopping-suggestions__count";
+    count.textContent = `${suggestion.count}x`;
+
+    button.append(count);
+    button.addEventListener("click", () => {
+      const existingItem = findShoppingItemByLabel(suggestion.label);
+      if (existingItem) {
+        existingItem.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      addShoppingItem(suggestion.label);
+    });
+
+    item.append(button);
+    shoppingSuggestionsList.append(item);
+  });
+}
+
+function recordShoppingSuggestion(label) {
+  const trimmedLabel = label.trim();
+  if (!trimmedLabel) return;
+  const normalized = normalizeText(trimmedLabel);
+  if (!normalized) return;
+  const current = state.shoppingSuggestions.get(normalized) || {
+    label: trimmedLabel,
+    count: 0,
+    lastAdded: 0
+  };
+  state.shoppingSuggestions.set(normalized, {
+    label: trimmedLabel,
+    count: current.count + 1,
+    lastAdded: Date.now()
+  });
+  renderShoppingSuggestions();
+}
+
 function persistShoppingList({ syncRemote = true } = {}) {
   if (!shoppingList) return;
   const items = Array.from(shoppingList.querySelectorAll(".shopping-item")).map((item) => ({
@@ -796,7 +866,8 @@ function replaceShoppingItems(items) {
       addShoppingItem(item.label, {
         categoryId: item.categoryId,
         checked: item.checked,
-        shouldPersist: false
+        shouldPersist: false,
+        shouldTrackSuggestions: false
       });
     }
   });
@@ -1059,7 +1130,12 @@ function updateShoppingItemCategory(item, nextCategoryId) {
 }
 
 function addShoppingItem(value, options = {}) {
-  const { categoryId = getShoppingCategory(value), checked = false, shouldPersist = true } = options;
+  const {
+    categoryId = getShoppingCategory(value),
+    checked = false,
+    shouldPersist = true,
+    shouldTrackSuggestions = true
+  } = options;
   const categoryMeta = getCategoryMeta(categoryId);
   const groupList = ensureCategoryGroup(categoryId);
 
@@ -1145,6 +1221,9 @@ function addShoppingItem(value, options = {}) {
   }
   refreshCategoryCount(groupList);
   updateShoppingEmptyState();
+  if (shouldTrackSuggestions) {
+    recordShoppingSuggestion(value);
+  }
   if (shouldPersist) {
     persistShoppingList();
   }
@@ -1552,6 +1631,7 @@ function initShoppingList() {
     replaceShoppingItems(storedItems);
   }
   updateShoppingEmptyState();
+  renderShoppingSuggestions();
 }
 
 function initRecipesList() {
