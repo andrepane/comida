@@ -16,9 +16,33 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div class="menu-backdrop" id="menuBackdrop" aria-hidden="true"></div>
+  <aside class="sidebar-menu" id="sidebarMenu" aria-label="Navegación principal">
+    <div class="sidebar-header">
+      <h2>Menú</h2>
+      <button class="icon-btn ghost" type="button" id="menuClose" aria-label="Cerrar menú">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <nav class="section-switch sidebar-switch" aria-label="Secciones">
+      <button class="btn switch-btn is-active" type="button" data-view="calendarView" aria-pressed="true">
+        Calendario
+      </button>
+      <button class="btn switch-btn" type="button" data-view="shoppingView" aria-pressed="false">
+        Compra
+      </button>
+      <button class="btn switch-btn" type="button" data-view="recipesView" aria-pressed="false">
+        Recetas
+      </button>
+    </nav>
+  </aside>
+
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
+        <button class="icon-btn menu-toggle" type="button" id="menuToggle" aria-label="Abrir menú">
+          <i class="fa-solid fa-bars" aria-hidden="true"></i>
+        </button>
         <span class="brand-icon" aria-hidden="true">🍽️</span>
         <div>
           <h1>Tuppería</h1>
@@ -40,18 +64,6 @@
     </header>
 
     <main class="page-content">
-      <nav class="section-switch" aria-label="Secciones">
-        <button class="btn switch-btn is-active" type="button" data-view="calendarView" aria-pressed="true">
-          Calendario
-        </button>
-        <button class="btn switch-btn" type="button" data-view="shoppingView" aria-pressed="false">
-          Lista de la compra
-        </button>
-        <button class="btn switch-btn" type="button" data-view="recipesView" aria-pressed="false">
-          Recetas
-        </button>
-      </nav>
-
       <section class="calendar-section view-panel is-active" id="calendarView" aria-labelledby="calendarTitle">
         <header class="section-header">
           <div>
@@ -65,14 +77,19 @@
         </header>
         <div class="calendar-wrapper">
           <div class="calendar-controls">
-            <button class="btn secondary" id="prevWeek" type="button">Semana anterior</button>
-            <div class="range">
-              <div class="range-title" id="rangeTitle">—</div>
-              <div class="range-sub" id="rangeSubtitle">—</div>
+            <div class="range-group">
+              <button class="icon-btn ghost" id="prevWeek" type="button" aria-label="Semana anterior">
+                <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+              </button>
+              <div class="range">
+                <div class="range-title" id="rangeTitle">—</div>
+                <div class="range-sub" id="rangeSubtitle">—</div>
+              </div>
+              <button class="icon-btn ghost" id="nextWeek" type="button" aria-label="Semana siguiente">
+                <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              </button>
             </div>
-            <button class="btn ghost small" id="nextEmpty" type="button">Primer hueco</button>
-            <button class="btn primary" id="today" type="button">Hoy</button>
-            <button class="btn secondary" id="nextWeek" type="button">Semana siguiente</button>
+            <button class="btn minimal small" id="today" type="button">Hoy</button>
           </div>
 
           <div class="calendar-grid" id="calendarGrid" aria-live="polite"></div>

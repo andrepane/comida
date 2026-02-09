@@ -53,7 +53,9 @@ const themeToggle = document.getElementById("themeToggle");
 const syncHint = document.getElementById("syncHint");
 const emptyDaysPill = document.getElementById("emptyDaysPill");
 const remoteNotice = document.getElementById("remoteNotice");
-const nextEmptyBtn = document.getElementById("nextEmpty");
+const menuToggle = document.getElementById("menuToggle");
+const menuClose = document.getElementById("menuClose");
+const menuBackdrop = document.getElementById("menuBackdrop");
 const clearCheckedBtn = document.getElementById("clearChecked");
 const collapseAllBtn = document.getElementById("collapseAllCategories");
 
@@ -1602,8 +1604,17 @@ function initViewSwitcher() {
   viewButtons.forEach((button) => {
     button.addEventListener("click", () => {
       setActiveView(button.dataset.view);
+      closeMenu();
     });
   });
+}
+
+function openMenu() {
+  document.body.classList.add("is-menu-open");
+}
+
+function closeMenu() {
+  document.body.classList.remove("is-menu-open");
 }
 
 function applyTheme(theme) {
@@ -1755,8 +1766,14 @@ document.addEventListener("keydown", (event) => {
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
 todayBtn.addEventListener("click", jumpToToday);
-if (nextEmptyBtn) {
-  nextEmptyBtn.addEventListener("click", jumpToNextEmptyDay);
+if (menuToggle) {
+  menuToggle.addEventListener("click", openMenu);
+}
+if (menuClose) {
+  menuClose.addEventListener("click", closeMenu);
+}
+if (menuBackdrop) {
+  menuBackdrop.addEventListener("click", closeMenu);
 }
 
 window.addEventListener("online", handleConnectivity);
