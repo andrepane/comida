@@ -157,10 +157,16 @@ body.is-menu-open .menu-backdrop {
 .menu-toggle {
   background: rgba(239, 106, 82, 0.14);
   color: var(--primary);
+  width: 44px;
+  height: 44px;
 }
 
 .menu-toggle:hover {
   background: rgba(239, 106, 82, 0.22);
+}
+
+.menu-toggle .fa-bars {
+  font-size: 22px;
 }
 
 .icon-btn {
