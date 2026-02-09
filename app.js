@@ -793,7 +793,7 @@ state.shoppingSuggestions = loadShoppingSuggestions();
 function getShoppingItemsFromDom() {
   if (!shoppingList) return [];
   return Array.from(shoppingList.querySelectorAll(".shopping-item")).map((item) => ({
-    label: item.querySelector(".shopping-item__label")?.textContent ?? "",
+    label: item.querySelector(".shopping-item__text")?.textContent ?? "",
     categoryId: item.dataset.category || "otros",
     checked: item.classList.contains("is-checked")
   }));
@@ -1322,15 +1322,33 @@ function addShoppingItem(value, options = {}) {
   item.className = "shopping-item";
   item.dataset.category = categoryMeta.id;
 
-  const label = document.createElement("span");
+  const label = document.createElement("div");
   label.className = "shopping-item__label";
+
+  const labelText = document.createElement("span");
+  labelText.className = "shopping-item__text";
 
   const icon = document.createElement("i");
   icon.className = `fa-solid ${getCategoryIconClass(categoryMeta.id)} shopping-item__icon`;
   icon.setAttribute("aria-hidden", "true");
 
-  label.textContent = value;
-  label.prepend(icon);
+  labelText.textContent = value;
+  labelText.prepend(icon);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "shopping-action delete shopping-item__delete";
+  deleteBtn.setAttribute("aria-label", "Eliminar de la lista");
+  deleteBtn.textContent = "✕";
+  deleteBtn.addEventListener("click", () => {
+    item.remove();
+    removeCategoryGroupIfEmpty(groupList);
+    refreshCategoryCount(groupList);
+    updateShoppingEmptyState();
+    persistShoppingList();
+  });
+
+  label.append(labelText, deleteBtn);
 
   const categoryButton = document.createElement("label");
   categoryButton.className = "shopping-item__category";
@@ -1378,20 +1396,7 @@ function addShoppingItem(value, options = {}) {
     persistShoppingList();
   });
 
-  const deleteBtn = document.createElement("button");
-  deleteBtn.type = "button";
-  deleteBtn.className = "shopping-action delete";
-  deleteBtn.setAttribute("aria-label", "Eliminar de la lista");
-  deleteBtn.textContent = "✕";
-  deleteBtn.addEventListener("click", () => {
-    item.remove();
-    removeCategoryGroupIfEmpty(groupList);
-    refreshCategoryCount(groupList);
-    updateShoppingEmptyState();
-    persistShoppingList();
-  });
-
-  actions.append(toggleBtn, deleteBtn);
+  actions.append(toggleBtn);
   item.append(label, categoryButton, actions);
   groupList.append(item);
   if (checked) {
@@ -1413,7 +1418,7 @@ function findShoppingItemByLabel(value) {
   const normalizedValue = normalizeText(value.trim());
   if (!normalizedValue) return null;
   return Array.from(shoppingList.querySelectorAll(".shopping-item")).find((item) => {
-    const label = item.querySelector(".shopping-item__label")?.textContent ?? "";
+    const label = item.querySelector(".shopping-item__text")?.textContent ?? "";
     return normalizeText(label.trim()) === normalizedValue;
   });
 }
@@ -1480,7 +1485,7 @@ function planRecipeForDate({ recipeTitle, dateValue, meal }) {
 function addRecipeIngredientsToShopping(ingredients) {
   if (!Array.isArray(ingredients) || !ingredients.length) return;
   const existingLabels = new Set(
-    Array.from(shoppingList?.querySelectorAll(".shopping-item__label") ?? [])
+    Array.from(shoppingList?.querySelectorAll(".shopping-item__text") ?? [])
       .map((item) => item.textContent?.trim().toLowerCase())
       .filter(Boolean)
   );

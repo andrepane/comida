@@ -936,9 +936,17 @@ body[data-theme="dark"] .shopping-item {
 
 .shopping-item__label {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.shopping-item__text {
+  flex: 1;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   word-break: break-word;
 }
 
@@ -1011,6 +1019,13 @@ body[data-theme="dark"] .shopping-item__select {
   color: #b91c1c;
 }
 
+.shopping-item__delete {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  font-size: 0.9em;
+}
+
 .shopping-item.is-checked {
   background: rgba(34, 197, 94, 0.16);
   border-color: rgba(34, 197, 94, 0.4);
@@ -1021,7 +1036,7 @@ body[data-theme="dark"] .shopping-item.is-checked {
   color: #4ade80;
 }
 
-.shopping-item.is-checked .shopping-item__label {
+.shopping-item.is-checked .shopping-item__text {
   text-decoration: line-through;
   opacity: 0.7;
 }
