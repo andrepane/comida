@@ -12,6 +12,8 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+import { normalizeText } from "./utils/normalizeText.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyCvxpyyTZvVYhXX8MrtJ1PORMMKMJHD18M",
   authDomain: "comida-fbfbd.firebaseapp.com",
@@ -550,10 +552,6 @@ function initCalendar() {
   resetTimers();
   buildCalendar();
   updateStatus();
-}
-
-function normalizeText(value) {
-  return value.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
 }
 
 const CUSTOM_CATEGORIES_KEY = "customCategories";
@@ -1519,11 +1517,11 @@ function addShoppingItem(value, options = {}) {
 
 function findShoppingItemByLabel(value) {
   if (!shoppingList) return null;
-  const normalizedValue = normalizeText(value.trim());
+  const normalizedValue = normalizeText(value);
   if (!normalizedValue) return null;
   return Array.from(shoppingList.querySelectorAll(".shopping-item")).find((item) => {
     const label = item.querySelector(".shopping-item__label")?.textContent ?? "";
-    return normalizeText(label.trim()) === normalizedValue;
+    return normalizeText(label) === normalizedValue;
   });
 }
 
@@ -1535,7 +1533,7 @@ function updateRecipesEmptyState() {
 
 function updateRecipesSearchEmptyState() {
   if (!recipesSearchEmpty || !recipesList) return;
-  const query = state.recipesFilter?.trim();
+  const query = state.recipesFilter || "";
   const totalItems = recipesList.querySelectorAll(".recipe-item").length;
   const visibleItems = recipesList.querySelectorAll(".recipe-item:not(.is-hidden)").length;
   const shouldShow = Boolean(query) && totalItems > 0 && visibleItems === 0;
@@ -1544,7 +1542,7 @@ function updateRecipesSearchEmptyState() {
 
 function applyRecipesFilter(rawQuery = recipesSearchInput?.value ?? "") {
   if (!recipesList) return;
-  const query = rawQuery.trim().toLowerCase();
+  const query = normalizeText(rawQuery);
   state.recipesFilter = query;
   recipesList.querySelectorAll(".recipe-item").forEach((item) => {
     const title = item.dataset.recipeTitle || "";
@@ -1590,7 +1588,7 @@ async function addRecipeIngredientsToShopping(ingredients) {
   if (!Array.isArray(ingredients) || !ingredients.length) return;
   const existingLabels = new Set(
     Array.from(shoppingList?.querySelectorAll(".shopping-item__label") ?? [])
-      .map((item) => item.textContent?.trim().toLowerCase())
+      .map((item) => normalizeText(item.textContent ?? ""))
       .filter(Boolean)
   );
   const normalizedIngredients = ingredients
@@ -1599,7 +1597,7 @@ async function addRecipeIngredientsToShopping(ingredients) {
       if (!label || ingredient.includeInShopping === false) return null;
       return {
         label,
-        normalizedLabel: label.toLowerCase(),
+        normalizedLabel: normalizeText(label),
         categoryId: getRecipeIngredientCategoryId(label, ingredient.categoryId)
       };
     })
@@ -1681,7 +1679,7 @@ function addRecipeItem(recipe, options = {}) {
   const item = document.createElement("li");
   item.className = "recipe-item";
   item.dataset.recipeId = recipe.id;
-  item.dataset.recipeTitle = recipe.title.toLowerCase();
+  item.dataset.recipeTitle = normalizeText(recipe.title);
 
   const card = document.createElement("button");
   card.type = "button";
