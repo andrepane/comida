@@ -48,12 +48,10 @@ const recipesSearchInput = document.getElementById("recipesSearchInput");
 const recipesList = document.getElementById("recipesList");
 const recipesEmpty = document.getElementById("recipesEmpty");
 const recipesSearchEmpty = document.getElementById("recipesSearchEmpty");
-const hoursModeEl = document.getElementById("hoursMode");
 const viewButtons = document.querySelectorAll(".switch-btn");
 const viewPanels = document.querySelectorAll(".view-panel");
 const statusBadge = document.querySelector(".status-badge");
 const themeToggle = document.getElementById("themeToggle");
-const syncHint = document.getElementById("syncHint");
 const emptyDaysPill = document.getElementById("emptyDaysPill");
 const remoteNotice = document.getElementById("remoteNotice");
 const menuToggle = document.getElementById("menuToggle");
@@ -154,39 +152,24 @@ function formatDayName(date) {
 function updateStatus() {
   if (!state.userId) {
     syncStatus.textContent = "Preparando…";
-    if (syncHint) {
-      syncHint.textContent = "Conectando con la nube.";
-    }
     setStatusBadge("is-preparing");
     return;
   }
   if (!navigator.onLine) {
     syncStatus.textContent = "Sin conexión";
-    if (syncHint) {
-      syncHint.textContent = "Puedes seguir editando. Se sincronizará al volver.";
-    }
     setStatusBadge("is-offline");
     return;
   }
   if (state.lastError) {
     syncStatus.textContent = "Problemas al guardar";
-    if (syncHint) {
-      syncHint.textContent = state.lastError;
-    }
     setStatusBadge("is-error");
     return;
   }
   if (state.pendingSaves > 0 || state.inFlight > 0) {
     syncStatus.textContent = "Guardando…";
-    if (syncHint) {
-      syncHint.textContent = "Tus cambios se están guardando.";
-    }
     setStatusBadge("is-saving");
   } else {
     syncStatus.textContent = "Guardado";
-    if (syncHint) {
-      syncHint.textContent = "Todo sincronizado.";
-    }
     setStatusBadge("is-saved");
   }
 }
