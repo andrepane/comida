@@ -104,6 +104,9 @@ const rangeFormatter = new Intl.DateTimeFormat("es-ES", {
 });
 
 const DUPLICATE_INGREDIENT_CHOICE_KEY = "duplicateIngredientsChoice";
+const ACTIVE_VIEW_STORAGE_KEY = "activeView";
+const VALID_APP_VIEWS = ["calendarView", "shoppingView", "recipesView"];
+const DEFAULT_ACTIVE_VIEW = VALID_APP_VIEWS[0];
 
 const state = {
   calendarId: SHARED_CALENDAR_ID,
@@ -151,6 +154,39 @@ function persistDuplicateIngredientChoice(choice) {
   } catch {
     // Ignore localStorage errors and continue with in-memory state.
   }
+}
+
+function isValidViewId(viewId) {
+  return VALID_APP_VIEWS.includes(viewId);
+}
+
+function loadStoredActiveView() {
+  try {
+    const storedView = localStorage.getItem(ACTIVE_VIEW_STORAGE_KEY);
+    return isValidViewId(storedView) ? storedView : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistActiveView(viewId) {
+  if (!isValidViewId(viewId)) return;
+  try {
+    localStorage.setItem(ACTIVE_VIEW_STORAGE_KEY, viewId);
+  } catch {
+    // Ignore localStorage errors and keep current view in-memory.
+  }
+}
+
+function resolveActiveView(viewId) {
+  if (isValidViewId(viewId)) return viewId;
+
+  const domDefaultView =
+    document.querySelector(".view-panel.is-active")?.id ||
+    document.querySelector(".switch-btn.is-active")?.dataset.view;
+
+  if (isValidViewId(domDefaultView)) return domDefaultView;
+  return DEFAULT_ACTIVE_VIEW;
 }
 
 function removeDuplicateIngredientChoice() {
@@ -1970,18 +2006,21 @@ function initRecipesList() {
 }
 
 function setActiveView(viewId) {
+  const nextViewId = resolveActiveView(viewId);
   viewPanels.forEach((panel) => {
-    panel.classList.toggle("is-active", panel.id === viewId);
+    panel.classList.toggle("is-active", panel.id === nextViewId);
   });
   viewButtons.forEach((button) => {
-    const isActive = button.dataset.view === viewId;
+    const isActive = button.dataset.view === nextViewId;
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   });
+  persistActiveView(nextViewId);
 }
 
 function initViewSwitcher() {
   if (!viewButtons.length || !viewPanels.length) return;
+  setActiveView(loadStoredActiveView());
   viewButtons.forEach((button) => {
     button.addEventListener("click", () => {
       setActiveView(button.dataset.view);
