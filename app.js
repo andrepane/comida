@@ -599,6 +599,8 @@ const SHOPPING_SUGGESTIONS_DOC_ID = "suggestions";
 const RECIPES_KEY = "recipes";
 const RECIPES_DOC_ID = "items";
 const SHOPPING_SUGGESTIONS_LIMIT = 8;
+const SHOPPING_ITEM_HIGHLIGHT_MS = 800;
+const shoppingMotionMediaQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
 
 function loadCustomCategories() {
   try {
@@ -898,6 +900,57 @@ function loadShoppingItems() {
   }
 }
 
+function prefersReducedMotion() {
+  return shoppingMotionMediaQuery?.matches === true;
+}
+
+function createShoppingItemId() {
+  if (typeof crypto?.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getShoppingItemIdentity(item) {
+  if (item?.id) {
+    return `id:${item.id}`;
+  }
+  const normalized = normalizeText(item?.label ?? "");
+  if (!normalized) return "";
+  return `legacy:${item?.categoryId || "otros"}:${normalized}`;
+}
+
+function animateShoppingItem(item, { source = "local" } = {}) {
+  if (!item) return;
+  const isRemote = source === "remote";
+  const highlightClass = isRemote ? "shopping-item--highlight-remote" : "shopping-item--highlight";
+  item.classList.remove("shopping-item--enter", "shopping-item--highlight", "shopping-item--highlight-remote");
+
+  const clearHighlight = () => {
+    item.classList.remove("shopping-item--highlight", "shopping-item--highlight-remote", "shopping-item--no-motion");
+  };
+
+  if (prefersReducedMotion()) {
+    item.classList.add(highlightClass, "shopping-item--no-motion");
+    setTimeout(clearHighlight, SHOPPING_ITEM_HIGHLIGHT_MS);
+    return;
+  }
+
+  if (!isRemote) {
+    item.classList.add("shopping-item--enter");
+    item.addEventListener("animationend", (event) => {
+      if (event.animationName === "shopping-item-enter") {
+        item.classList.remove("shopping-item--enter");
+      }
+    }, { once: true });
+  }
+
+  requestAnimationFrame(() => {
+    item.classList.add(highlightClass);
+  });
+  setTimeout(clearHighlight, SHOPPING_ITEM_HIGHLIGHT_MS + (isRemote ? 0 : 50));
+}
+
 function saveShoppingItems(items) {
   localStorage.setItem(SHOPPING_ITEMS_KEY, JSON.stringify(items));
 }
@@ -936,6 +989,8 @@ state.shoppingSuggestions = loadShoppingSuggestions();
 function getShoppingItemsFromDom() {
   if (!shoppingList) return [];
   return Array.from(shoppingList.querySelectorAll(".shopping-item")).map((item) => ({
+    id: item.dataset.itemId || "",
+    createdAt: Number(item.dataset.createdAt) || Date.now(),
     label: item.querySelector(".shopping-item__label")?.textContent ?? "",
     categoryId: item.dataset.category || "otros",
     checked: item.classList.contains("is-checked")
@@ -945,6 +1000,7 @@ function getShoppingItemsFromDom() {
 function serializeShoppingItems(items) {
   return JSON.stringify(
     items.map((item) => ({
+      id: item.id ?? "",
       label: item.label ?? "",
       categoryId: item.categoryId ?? "otros",
       checked: Boolean(item.checked)
@@ -1122,15 +1178,26 @@ async function saveShoppingSuggestionsRemote() {
 
 function replaceShoppingItems(items, options = {}) {
   if (!shoppingList) return;
-  const { updateTimestamp = false, remoteUpdatedAt = 0 } = options;
+  const {
+    updateTimestamp = false,
+    remoteUpdatedAt = 0,
+    shouldAnimateNew = false,
+    animationSource = "local",
+    knownItems = new Set()
+  } = options;
   shoppingList.innerHTML = "";
   items.forEach((item) => {
     if (item?.label) {
+      const identity = getShoppingItemIdentity(item);
       addShoppingItem(item.label, {
+        itemId: item.id,
+        createdAt: item.createdAt,
         categoryId: item.categoryId,
         checked: item.checked,
         shouldPersist: false,
-        shouldTrackSuggestions: false
+        shouldTrackSuggestions: false,
+        shouldAnimate: shouldAnimateNew && identity ? !knownItems.has(identity) : false,
+        animationSource
       });
     }
   });
@@ -1235,7 +1302,16 @@ function initShoppingItemsSync() {
     if (localUpdatedAt && remoteUpdatedAt && remoteUpdatedAt < localUpdatedAt) {
       return;
     }
-    replaceShoppingItems(data.items, { updateTimestamp: true, remoteUpdatedAt });
+    const knownItems = new Set(
+      getShoppingItemsFromDom().map((item) => getShoppingItemIdentity(item)).filter(Boolean)
+    );
+    replaceShoppingItems(data.items, {
+      updateTimestamp: true,
+      remoteUpdatedAt,
+      shouldAnimateNew: true,
+      animationSource: "remote",
+      knownItems
+    });
   });
 }
 
@@ -1453,16 +1529,22 @@ function updateShoppingItemCategory(item, nextCategoryId) {
 
 function addShoppingItem(value, options = {}) {
   const {
+    itemId = createShoppingItemId(),
+    createdAt = Date.now(),
     categoryId = getShoppingCategory(value),
     checked = false,
     shouldPersist = true,
-    shouldTrackSuggestions = true
+    shouldTrackSuggestions = true,
+    shouldAnimate = true,
+    animationSource = "local"
   } = options;
   const categoryMeta = getCategoryMeta(categoryId);
   const groupList = ensureCategoryGroup(categoryId);
 
   const item = document.createElement("li");
   item.className = "shopping-item";
+  item.dataset.itemId = itemId;
+  item.dataset.createdAt = String(createdAt);
   item.dataset.category = categoryMeta.id;
 
   const label = document.createElement("span");
@@ -1537,6 +1619,9 @@ function addShoppingItem(value, options = {}) {
   actions.append(toggleBtn, deleteBtn);
   item.append(label, categoryButton, actions);
   groupList.append(item);
+  if (shouldAnimate) {
+    animateShoppingItem(item, { source: animationSource });
+  }
   if (checked) {
     item.classList.add("is-checked");
     toggleBtn.setAttribute("aria-pressed", "true");
@@ -1965,7 +2050,7 @@ function initShoppingList() {
   }
   const storedItems = loadShoppingItems();
   if (storedItems.length) {
-    replaceShoppingItems(storedItems);
+    replaceShoppingItems(storedItems, { shouldAnimateNew: false });
   }
   updateShoppingEmptyState();
   renderShoppingSuggestions();
