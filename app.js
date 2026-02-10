@@ -103,6 +103,8 @@ const rangeFormatter = new Intl.DateTimeFormat("es-ES", {
   year: "numeric"
 });
 
+const DUPLICATE_INGREDIENT_CHOICE_KEY = "duplicateIngredientsChoice";
+
 const state = {
   calendarId: SHARED_CALENDAR_ID,
   currentMonday: getMonday(new Date()),
@@ -124,12 +126,136 @@ const state = {
   recipesFilter: "",
   dayElements: new Map(),
   activeRecipeModal: null,
+  activeAppModal: null,
+  duplicateIngredientChoice: loadDuplicateIngredientChoice(),
   pendingSaves: 0,
   inFlight: 0,
   lastError: null,
   remoteNoticeTimer: null,
   seenDays: new Set()
 };
+
+function loadDuplicateIngredientChoice() {
+  try {
+    const storedChoice = localStorage.getItem(DUPLICATE_INGREDIENT_CHOICE_KEY);
+    return storedChoice === "skip" || storedChoice === "all" ? storedChoice : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistDuplicateIngredientChoice(choice) {
+  if (choice !== "skip" && choice !== "all") return;
+  try {
+    localStorage.setItem(DUPLICATE_INGREDIENT_CHOICE_KEY, choice);
+  } catch {
+    // Ignore localStorage errors and continue with in-memory state.
+  }
+}
+
+function removeDuplicateIngredientChoice() {
+  try {
+    localStorage.removeItem(DUPLICATE_INGREDIENT_CHOICE_KEY);
+  } catch {
+    // Ignore localStorage errors and continue with in-memory state.
+  }
+}
+
+function closeAppModal({ action = "cancel" } = {}) {
+  const activeModal = state.activeAppModal;
+  if (!activeModal) return;
+  const { overlay, resolve, returnFocusEl } = activeModal;
+  state.activeAppModal = null;
+  overlay.remove();
+  document.body.classList.remove("has-app-modal");
+  if (returnFocusEl && typeof returnFocusEl.focus === "function") {
+    returnFocusEl.focus();
+  }
+  resolve(action);
+}
+
+function showActionModal({ title, message, actions = [], showRememberChoice = false }) {
+  if (state.activeAppModal) {
+    closeAppModal({ action: "cancel" });
+  }
+
+  return new Promise((resolve) => {
+    const returnFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const overlay = document.createElement("div");
+    overlay.className = "app-modal-overlay";
+    overlay.setAttribute("role", "presentation");
+
+    const modal = document.createElement("div");
+    modal.className = "app-modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+
+    const titleId = `app-modal-title-${Date.now()}`;
+    const messageId = `app-modal-description-${Date.now()}`;
+    modal.setAttribute("aria-labelledby", titleId);
+    modal.setAttribute("aria-describedby", messageId);
+
+    const heading = document.createElement("h3");
+    heading.id = titleId;
+    heading.className = "app-modal__title";
+    heading.textContent = title;
+
+    const description = document.createElement("p");
+    description.id = messageId;
+    description.className = "app-modal__text";
+    description.textContent = message;
+
+    const actionsRow = document.createElement("div");
+    actionsRow.className = "app-modal__actions";
+
+    let rememberChoiceInput = null;
+    if (showRememberChoice) {
+      const rememberChoiceLabel = document.createElement("label");
+      rememberChoiceLabel.className = "app-modal__remember";
+      rememberChoiceInput = document.createElement("input");
+      rememberChoiceInput.type = "checkbox";
+      rememberChoiceInput.value = "remember";
+      const rememberChoiceText = document.createElement("span");
+      rememberChoiceText.textContent = "Recordar mi elección";
+      rememberChoiceLabel.append(rememberChoiceInput, rememberChoiceText);
+      modal.append(heading, description, rememberChoiceLabel, actionsRow);
+    } else {
+      modal.append(heading, description, actionsRow);
+    }
+
+    actions.forEach((action, index) => {
+      const actionButton = document.createElement("button");
+      actionButton.type = "button";
+      actionButton.className = action.className || "btn ghost";
+      actionButton.textContent = action.label;
+      actionButton.addEventListener("click", () => {
+        if (rememberChoiceInput?.checked && (action.value === "skip" || action.value === "all")) {
+          state.duplicateIngredientChoice = action.value;
+          persistDuplicateIngredientChoice(action.value);
+        } else if (rememberChoiceInput?.checked) {
+          state.duplicateIngredientChoice = null;
+          removeDuplicateIngredientChoice();
+        }
+        closeAppModal({ action: action.value });
+      });
+      actionsRow.append(actionButton);
+      if (index === 0) {
+        requestAnimationFrame(() => actionButton.focus());
+      }
+    });
+
+    overlay.append(modal);
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) {
+        closeAppModal({ action: "cancel" });
+      }
+    });
+
+    document.body.append(overlay);
+    document.body.classList.add("has-app-modal");
+    state.activeAppModal = { overlay, resolve, returnFocusEl };
+  });
+}
 
 function getMonday(date) {
   const copy = new Date(date);
@@ -1477,7 +1603,7 @@ function planRecipeForDate({ recipeTitle, dateValue, meal }) {
   showCalendarNotice(`Receta añadida a ${formatDayName(date)}.`);
 }
 
-function addRecipeIngredientsToShopping(ingredients) {
+async function addRecipeIngredientsToShopping(ingredients) {
   if (!Array.isArray(ingredients) || !ingredients.length) return;
   const existingLabels = new Set(
     Array.from(shoppingList?.querySelectorAll(".shopping-item__label") ?? [])
@@ -1502,9 +1628,24 @@ function addRecipeIngredientsToShopping(ingredients) {
     .map((ingredient) => ingredient.label);
   let includeDuplicates = true;
   if (duplicateLabels.length) {
-    includeDuplicates = window.confirm(
-      `Ya tienes en la lista: ${duplicateLabels.join(", ")}. ¿Quieres añadirlos igualmente?`
-    );
+    let duplicateAction = state.duplicateIngredientChoice;
+    if (!duplicateAction) {
+      duplicateAction = await showActionModal({
+        title: "Ingredientes duplicados",
+        message: `Ya existen ${duplicateLabels.length} ingredientes. ¿Qué quieres hacer?`,
+        showRememberChoice: true,
+        actions: [
+          { label: "Omitir duplicados", value: "skip", className: "btn ghost" },
+          { label: "Añadir todos", value: "all", className: "btn secondary" },
+          { label: "Cancelar", value: "cancel", className: "btn minimal" }
+        ]
+      });
+    }
+
+    if (duplicateAction === "cancel") {
+      return;
+    }
+    includeDuplicates = duplicateAction === "all";
   }
 
   let addedAny = false;
@@ -2049,6 +2190,10 @@ function updateShoppingEmptyState() {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  if (state.activeAppModal) {
+    closeAppModal({ action: "cancel" });
+    return;
+  }
   if (state.activeRecipeModal) {
     closeRecipeModal(state.activeRecipeModal);
   }
