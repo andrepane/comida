@@ -725,9 +725,13 @@ body[data-theme="dark"] .empty-state {
   min-width: 190px;
 }
 
+.shopping-main-field {
+  min-width: 220px;
+}
+
 .shopping-quantity-field {
   flex: 0 0 auto;
-  min-width: 88px;
+  min-width: 64px;
 }
 
 .shopping-quantity-field select {
@@ -735,6 +739,9 @@ body[data-theme="dark"] .empty-state {
   text-align: center;
   font-weight: 700;
   letter-spacing: 0.02em;
+  font-size: 13px;
+  padding: 6px 20px 6px 8px;
+  border-radius: 10px;
 }
 
 .shopping-form.is-submitted .btn[type="submit"] {
@@ -1762,12 +1769,12 @@ body[data-theme="dark"] .recipe-field select {
   }
 
   .shopping-quantity-field {
-    min-width: 76px;
+    min-width: 64px;
   }
 
   .shopping-quantity-field select {
     padding-left: 8px;
-    padding-right: 20px;
+    padding-right: 18px;
   }
 }
 
@@ -1794,4 +1801,3 @@ body[data-theme="dark"] .recipe-field select {
     animation: none;
   }
 }
-
