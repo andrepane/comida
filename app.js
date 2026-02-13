@@ -44,6 +44,7 @@ const shoppingSuggestionsEmpty = document.getElementById("shoppingSuggestionsEmp
 const recipesForm = document.getElementById("recipesForm");
 const recipesInput = document.getElementById("recipesInput");
 const recipeIngredientInput = document.getElementById("recipeIngredientInput");
+const recipeIngredientQuantity = document.getElementById("recipeIngredientQuantity");
 const recipeIngredientAdd = document.getElementById("recipeIngredientAdd");
 const recipeIngredientsList = document.getElementById("recipeIngredientsList");
 const recipesSearchInput = document.getElementById("recipesSearchInput");
@@ -600,7 +601,18 @@ const RECIPES_KEY = "recipes";
 const RECIPES_DOC_ID = "items";
 const SHOPPING_SUGGESTIONS_LIMIT = 20;
 const SHOPPING_ITEM_HIGHLIGHT_MS = 800;
+const RECIPE_INGREDIENT_HIGHLIGHT_MS = 320;
 const shoppingMotionMediaQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
+
+function normalizeIngredientQuantity(quantity) {
+  const numericQuantity = Number.parseInt(quantity, 10);
+  if (!Number.isFinite(numericQuantity) || numericQuantity < 1) return 1;
+  return numericQuantity;
+}
+
+function formatIngredientLabel(label, quantity) {
+  return `${label} x${normalizeIngredientQuantity(quantity)}`;
+}
 
 function loadCustomCategories() {
   try {
@@ -650,6 +662,7 @@ function normalizeRecipeIngredients(ingredients) {
   return ingredients
     .map((ingredient) => ({
       label: ingredient?.label?.trim() ?? "",
+      quantity: normalizeIngredientQuantity(ingredient?.quantity),
       categoryId: ingredient?.categoryId || "",
       includeInShopping: ingredient?.includeInShopping !== false
     }))
@@ -678,9 +691,13 @@ function buildRecipeIngredientItem(ingredient, options = {}) {
 
   const label = document.createElement("span");
   label.className = "recipe-ingredient__label";
-  label.textContent = ingredient.label;
+  const ingredientLabel = ingredient?.label?.trim() ?? "";
+  const ingredientQuantity = normalizeIngredientQuantity(ingredient?.quantity);
+  label.textContent = formatIngredientLabel(ingredientLabel, ingredientQuantity);
+  item.dataset.label = ingredientLabel;
+  item.dataset.quantity = String(ingredientQuantity);
 
-  const categoryId = getRecipeIngredientCategoryId(ingredient.label, ingredient.categoryId);
+  const categoryId = getRecipeIngredientCategoryId(ingredientLabel, ingredient.categoryId);
   item.dataset.category = categoryId;
   const isIncluded = ingredient.includeInShopping !== false;
   item.dataset.includeInShopping = String(isIncluded);
@@ -710,7 +727,7 @@ function buildRecipeIngredientItem(ingredient, options = {}) {
     const nextCategory = select.value;
     item.dataset.category = nextCategory;
     categoryLabel.textContent = getCategoryMeta(nextCategory).label;
-    setCustomCategory(ingredient.label, nextCategory);
+    setCustomCategory(ingredientLabel, nextCategory);
     if (onCategoryChange) {
       onCategoryChange(nextCategory);
     }
@@ -755,12 +772,19 @@ function addRecipeIngredientToDraft(ingredient) {
   if (!recipeIngredientsList) return;
   const item = buildRecipeIngredientItem(ingredient);
   recipeIngredientsList.append(item);
+  if (!prefersReducedMotion()) {
+    item.classList.add("recipe-ingredient--flash");
+    setTimeout(() => {
+      item.classList.remove("recipe-ingredient--flash");
+    }, RECIPE_INGREDIENT_HIGHLIGHT_MS);
+  }
 }
 
 function getRecipeIngredientsFromList(listElement) {
   if (!listElement) return [];
   return Array.from(listElement.querySelectorAll(".recipe-ingredient")).map((item) => ({
-    label: item.querySelector(".recipe-ingredient__label")?.textContent?.trim() ?? "",
+    label: item.dataset.label?.trim() ?? "",
+    quantity: normalizeIngredientQuantity(item.dataset.quantity),
     categoryId: item.dataset.category || "",
     includeInShopping: item.dataset.includeInShopping !== "false"
   })).filter((ingredient) => ingredient.label);
@@ -1718,6 +1742,7 @@ async function addRecipeIngredientsToShopping(ingredients) {
       if (!label || ingredient.includeInShopping === false) return null;
       return {
         label,
+        quantity: normalizeIngredientQuantity(ingredient.quantity),
         normalizedLabel: normalizeText(label),
         categoryId: getRecipeIngredientCategoryId(label, ingredient.categoryId)
       };
@@ -1755,7 +1780,8 @@ async function addRecipeIngredientsToShopping(ingredients) {
     if (!includeDuplicates && existingLabels.has(ingredient.normalizedLabel)) return;
     const label = ingredient?.label?.trim();
     if (!label) return;
-    addShoppingItem(label, {
+    const shoppingLabel = formatIngredientLabel(label, ingredient.quantity);
+    addShoppingItem(shoppingLabel, {
       categoryId: ingredient.categoryId,
       shouldPersist: false
     });
@@ -1857,6 +1883,16 @@ function addRecipeItem(recipe, options = {}) {
   ingredientInput.className = "recipe-ingredient-controls__input";
   ingredientInput.placeholder = "Añadir ingrediente";
 
+  const ingredientQuantitySelect = document.createElement("select");
+  ingredientQuantitySelect.className = "recipe-ingredient-controls__quantity";
+  ingredientQuantitySelect.setAttribute("aria-label", "Cantidad del ingrediente");
+  for (let quantity = 1; quantity <= 8; quantity += 1) {
+    const quantityOption = document.createElement("option");
+    quantityOption.value = String(quantity);
+    quantityOption.textContent = `x${quantity}`;
+    ingredientQuantitySelect.append(quantityOption);
+  }
+
   const ingredientButton = document.createElement("button");
   ingredientButton.type = "button";
   ingredientButton.className = "btn ghost small";
@@ -1865,7 +1901,10 @@ function addRecipeItem(recipe, options = {}) {
   const handleAddIngredient = () => {
     const value = ingredientInput.value.trim();
     if (!value) return;
-    const ingredientItem = buildRecipeIngredientItem({ label: value }, {
+    const ingredientItem = buildRecipeIngredientItem({
+      label: value,
+      quantity: normalizeIngredientQuantity(ingredientQuantitySelect.value)
+    }, {
       onRemove: () => {
         refreshRecipeIngredientsEmptyState(ingredientsList);
         persistRecipes();
@@ -1878,8 +1917,15 @@ function addRecipeItem(recipe, options = {}) {
       }
     });
     ingredientsList.append(ingredientItem);
+    if (!prefersReducedMotion()) {
+      ingredientItem.classList.add("recipe-ingredient--flash");
+      setTimeout(() => {
+        ingredientItem.classList.remove("recipe-ingredient--flash");
+      }, RECIPE_INGREDIENT_HIGHLIGHT_MS);
+    }
     refreshRecipeIngredientsEmptyState(ingredientsList);
     ingredientInput.value = "";
+    ingredientQuantitySelect.value = "1";
     ingredientInput.focus();
     persistRecipes();
   };
@@ -1892,7 +1938,7 @@ function addRecipeItem(recipe, options = {}) {
     }
   });
 
-  ingredientControls.append(ingredientInput, ingredientButton);
+  ingredientControls.append(ingredientInput, ingredientQuantitySelect, ingredientButton);
 
   ingredientsWrapper.append(ingredientsTitle, ingredientsList, ingredientControls);
 
@@ -2062,8 +2108,14 @@ function initRecipesList() {
     recipeIngredientAdd.addEventListener("click", () => {
       const value = recipeIngredientInput.value.trim();
       if (!value) return;
-      addRecipeIngredientToDraft({ label: value });
+      addRecipeIngredientToDraft({
+        label: value,
+        quantity: normalizeIngredientQuantity(recipeIngredientQuantity?.value)
+      });
       recipeIngredientInput.value = "";
+      if (recipeIngredientQuantity) {
+        recipeIngredientQuantity.value = "1";
+      }
       recipeIngredientInput.focus();
     });
   }

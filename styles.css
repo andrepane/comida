@@ -1126,6 +1126,35 @@ body[data-theme="dark"] .shopping-item.is-checked {
   min-width: 190px;
 }
 
+
+.field-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-inline input {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-inline__quantity {
+  flex: 0 0 auto;
+  width: 68px;
+  min-width: 68px;
+  font-size: 12px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(248, 250, 252, 0.9);
+  color: var(--text);
+  text-align: center;
+}
+
+body[data-theme="dark"] .field-inline__quantity {
+  background: rgba(15, 23, 42, 0.9);
+}
+
 .recipe-ingredients-panel {
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
@@ -1376,7 +1405,7 @@ body[data-theme="dark"] .recipe-card__media {
 
 .recipe-ingredient-controls__input {
   flex: 1;
-  min-width: 180px;
+  min-width: 140px;
   font-size: 12px;
   padding: 6px 8px;
   border-radius: 8px;
@@ -1385,7 +1414,21 @@ body[data-theme="dark"] .recipe-card__media {
   color: var(--text);
 }
 
-body[data-theme="dark"] .recipe-ingredient-controls__input {
+.recipe-ingredient-controls__quantity {
+  flex: 0 0 auto;
+  width: 62px;
+  min-width: 62px;
+  font-size: 12px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(248, 250, 252, 0.9);
+  color: var(--text);
+  text-align: center;
+}
+
+body[data-theme="dark"] .recipe-ingredient-controls__input,
+body[data-theme="dark"] .recipe-ingredient-controls__quantity {
   background: rgba(15, 23, 42, 0.9);
 }
 
@@ -1413,6 +1456,25 @@ body[data-theme="dark"] .recipe-ingredient-controls__input {
 
 .recipe-ingredient.is-excluded {
   opacity: 0.7;
+}
+
+.recipe-ingredient--flash {
+  animation: recipe-ingredient-flash 0.32s ease;
+}
+
+@keyframes recipe-ingredient-flash {
+  0% {
+    transform: scale(0.98);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.25);
+  }
+  60% {
+    transform: scale(1.01);
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
 }
 
 body[data-theme="dark"] .recipe-ingredient {
@@ -1552,6 +1614,13 @@ body[data-theme="dark"] .recipe-field select {
     font-size: 11px;
     letter-spacing: 0.03em;
     box-shadow: 0 4px 8px rgba(15, 23, 42, 0.1);
+  }
+
+  .field-inline__quantity,
+  .recipe-ingredient-controls__quantity {
+    width: 56px;
+    min-width: 56px;
+    padding-inline: 3px;
   }
 }
 

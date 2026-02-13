@@ -142,7 +142,19 @@
             </label>
             <label class="field">
               <span>Ingrediente</span>
-              <input id="recipeIngredientInput" type="text" placeholder="Ej: Tomate, arroz..." />
+              <div class="field-inline">
+                <input id="recipeIngredientInput" type="text" placeholder="Ej: Tomate, arroz..." />
+                <select id="recipeIngredientQuantity" class="field-inline__quantity" aria-label="Cantidad del ingrediente">
+                  <option value="1">x1</option>
+                  <option value="2">x2</option>
+                  <option value="3">x3</option>
+                  <option value="4">x4</option>
+                  <option value="5">x5</option>
+                  <option value="6">x6</option>
+                  <option value="7">x7</option>
+                  <option value="8">x8</option>
+                </select>
+              </div>
             </label>
             <button class="btn ghost" type="button" id="recipeIngredientAdd">Añadir ingrediente</button>
             <button class="btn secondary" type="submit">Guardar</button>
