@@ -93,6 +93,21 @@ const categoryIcons = {
   congelados: "fa-ice-cream"
 };
 
+const recipeCategoryEmojis = {
+  carne: "🥩",
+  pescado: "🐟",
+  "fruta-verdura": "🥗",
+  hidratos: "🍝",
+  lacteos: "🧀",
+  despensa: "🥫",
+  bebidas: "🥤",
+  desayuno: "🥐",
+  higiene: "🧴",
+  snacks: "🍿",
+  congelados: "🧊",
+  otros: "🍲"
+};
+
 const weekdayFormatter = new Intl.DateTimeFormat("es-ES", { weekday: "long" });
 const dateFormatter = new Intl.DateTimeFormat("es-ES", {
   day: "2-digit",
@@ -1404,6 +1419,21 @@ function getCategoryMeta(categoryId) {
   return SHOPPING_CATEGORIES.find((category) => category.id === categoryId) || SHOPPING_CATEGORIES.at(-1);
 }
 
+function getRecipeVisualCategory(ingredients = []) {
+  const counts = new Map();
+  ingredients.forEach((ingredient) => {
+    const categoryId = getRecipeIngredientCategoryId(ingredient?.label, ingredient?.categoryId);
+    const previousCount = counts.get(categoryId) || 0;
+    counts.set(categoryId, previousCount + 1);
+  });
+
+  const prioritized = Array.from(counts.entries())
+    .filter(([categoryId]) => categoryId && categoryId !== "otros")
+    .sort((left, right) => right[1] - left[1]);
+
+  return prioritized[0]?.[0] || "otros";
+}
+
 function getCategoryIconClass(categoryId) {
   if (categoryId === "higiene") {
     return categoryIcons.limpieza;
@@ -1815,10 +1845,12 @@ function addRecipeItem(recipe, options = {}) {
   if (!recipesList) return;
   const { shouldPersist = true } = options;
   const recipeIngredients = normalizeRecipeIngredients(recipe.ingredients);
+  const recipeCategoryId = getRecipeVisualCategory(recipeIngredients);
   const item = document.createElement("li");
   item.className = "recipe-item";
   item.dataset.recipeId = recipe.id;
   item.dataset.recipeTitle = normalizeText(recipe.title);
+  item.dataset.category = recipeCategoryId;
 
   const card = document.createElement("button");
   card.type = "button";
@@ -1831,7 +1863,7 @@ function addRecipeItem(recipe, options = {}) {
   const cardIcon = document.createElement("span");
   cardIcon.className = "recipe-card__icon";
   cardIcon.setAttribute("aria-hidden", "true");
-  cardIcon.textContent = "🍲";
+  cardIcon.textContent = recipeCategoryEmojis[recipeCategoryId] || recipeCategoryEmojis.otros;
   cardMedia.append(cardIcon);
 
   const cardTitle = document.createElement("span");
