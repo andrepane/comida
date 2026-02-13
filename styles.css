@@ -1,6 +1,8 @@
 :root {
   color-scheme: light;
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-heading: "DM Sans", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
   --space-1: 3px;
   --space-2: 6px;
   --space-3: 9px;
@@ -55,6 +57,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  font-family: var(--font-body);
   padding: env(safe-area-inset-top) 0 calc(48px + env(safe-area-inset-bottom));
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
@@ -65,6 +68,14 @@ h2,
 h3,
 p {
   margin: 0;
+}
+
+h1,
+h2,
+h3,
+.recipe-card__title,
+.recipe-modal__header h3 {
+  font-family: var(--font-heading);
 }
 
 a {
@@ -1254,9 +1265,69 @@ body[data-theme="dark"] .recipe-ingredients-panel {
   box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
 }
 
+
+.recipe-item[data-category="carne"] {
+  --recipe-media-start: rgba(248, 113, 113, 0.92);
+  --recipe-media-end: rgba(249, 115, 22, 0.82);
+}
+
+.recipe-item[data-category="pescado"] {
+  --recipe-media-start: rgba(56, 189, 248, 0.9);
+  --recipe-media-end: rgba(14, 165, 233, 0.8);
+}
+
+.recipe-item[data-category="fruta-verdura"] {
+  --recipe-media-start: rgba(74, 222, 128, 0.9);
+  --recipe-media-end: rgba(132, 204, 22, 0.8);
+}
+
+.recipe-item[data-category="hidratos"] {
+  --recipe-media-start: rgba(251, 191, 36, 0.88);
+  --recipe-media-end: rgba(245, 158, 11, 0.8);
+}
+
+.recipe-item[data-category="lacteos"] {
+  --recipe-media-start: rgba(165, 180, 252, 0.9);
+  --recipe-media-end: rgba(129, 140, 248, 0.8);
+}
+
+.recipe-item[data-category="despensa"] {
+  --recipe-media-start: rgba(251, 146, 60, 0.9);
+  --recipe-media-end: rgba(234, 88, 12, 0.82);
+}
+
+.recipe-item[data-category="congelados"] {
+  --recipe-media-start: rgba(125, 211, 252, 0.92);
+  --recipe-media-end: rgba(59, 130, 246, 0.78);
+}
+
+.recipe-item[data-category="bebidas"] {
+  --recipe-media-start: rgba(14, 165, 233, 0.9);
+  --recipe-media-end: rgba(59, 130, 246, 0.82);
+}
+
+.recipe-item[data-category="desayuno"] {
+  --recipe-media-start: rgba(250, 204, 21, 0.88);
+  --recipe-media-end: rgba(249, 115, 22, 0.8);
+}
+
+.recipe-item[data-category="snacks"] {
+  --recipe-media-start: rgba(251, 113, 133, 0.9);
+  --recipe-media-end: rgba(236, 72, 153, 0.78);
+}
+
+.recipe-item[data-category="higiene"] {
+  --recipe-media-start: rgba(196, 181, 253, 0.9);
+  --recipe-media-end: rgba(129, 140, 248, 0.8);
+}
+
+.recipe-item[data-category="otros"] {
+  --recipe-media-start: rgba(239, 106, 82, 0.85);
+  --recipe-media-end: rgba(251, 191, 36, 0.7);
+}
 .recipe-card__media {
   height: 130px;
-  background: linear-gradient(135deg, rgba(239, 106, 82, 0.85), rgba(251, 191, 36, 0.7));
+  background: linear-gradient(135deg, var(--recipe-media-start, rgba(239, 106, 82, 0.85)), var(--recipe-media-end, rgba(251, 191, 36, 0.7)));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1264,7 +1335,7 @@ body[data-theme="dark"] .recipe-ingredients-panel {
 }
 
 body[data-theme="dark"] .recipe-card__media {
-  background: linear-gradient(135deg, rgba(251, 138, 117, 0.9), rgba(56, 189, 248, 0.55));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--recipe-media-start, rgba(251, 138, 117, 0.9)) 88%, black), color-mix(in srgb, var(--recipe-media-end, rgba(56, 189, 248, 0.55)) 78%, #0f172a));
 }
 
 .recipe-card__icon {
