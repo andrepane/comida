@@ -577,6 +577,15 @@ body[data-theme="dark"] .day-card.is-empty {
   color: var(--text);
 }
 
+.field select {
+  font-size: 14px;
+  padding: 8px 28px 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(248, 250, 252, 0.8);
+  color: var(--text);
+}
+
 @supports (-webkit-touch-callout: none) {
   body {
     width: 100vw;
@@ -584,6 +593,10 @@ body[data-theme="dark"] .day-card.is-empty {
 }
 
 body[data-theme="dark"] .field input {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+body[data-theme="dark"] .field select {
   background: rgba(15, 23, 42, 0.8);
 }
 
@@ -710,6 +723,22 @@ body[data-theme="dark"] .empty-state {
 .shopping-form .field {
   flex: 1;
   min-width: 190px;
+}
+
+.shopping-quantity-field {
+  flex: 0 0 auto;
+  min-width: 88px;
+}
+
+.shopping-quantity-field select {
+  width: 100%;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.shopping-form.is-submitted .btn[type="submit"] {
+  animation: shopping-submit-feedback 220ms ease-out;
 }
 
 .shopping-suggestions {
@@ -999,6 +1028,31 @@ body[data-theme="dark"] .shopping-item {
   align-items: center;
   gap: 8px;
   word-break: break-word;
+}
+
+.shopping-item__name {
+  min-width: 0;
+}
+
+.shopping-item__quantity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-strong);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  background: rgba(59, 130, 246, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+body[data-theme="dark"] .shopping-item__quantity {
+  color: #bfdbfe;
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(147, 197, 253, 0.28);
+  box-shadow: none;
 }
 
 .shopping-item__icon {
@@ -1706,8 +1760,28 @@ body[data-theme="dark"] .recipe-field select {
     flex: 1;
     text-align: center;
   }
+
+  .shopping-quantity-field {
+    min-width: 76px;
+  }
+
+  .shopping-quantity-field select {
+    padding-left: 8px;
+    padding-right: 20px;
+  }
 }
 
+@keyframes shopping-submit-feedback {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.02);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .shopping-item {

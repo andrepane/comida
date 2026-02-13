@@ -36,6 +36,7 @@ const rangeTitle = document.getElementById("rangeTitle");
 const rangeSubtitle = document.getElementById("rangeSubtitle");
 const shoppingForm = document.getElementById("shoppingForm");
 const shoppingInput = document.getElementById("shoppingInput");
+const shoppingQuantity = document.getElementById("shoppingQuantity");
 const shoppingList = document.getElementById("shoppingList");
 const shoppingEmpty = document.getElementById("shoppingEmpty");
 const shoppingSuggestions = document.getElementById("shoppingSuggestions");
@@ -991,7 +992,8 @@ function getShoppingItemsFromDom() {
   return Array.from(shoppingList.querySelectorAll(".shopping-item")).map((item) => ({
     id: item.dataset.itemId || "",
     createdAt: Number(item.dataset.createdAt) || Date.now(),
-    label: item.querySelector(".shopping-item__label")?.textContent ?? "",
+    label: item.querySelector(".shopping-item__name")?.textContent ?? "",
+    quantity: Math.max(1, Number(item.dataset.quantity) || 1),
     categoryId: item.dataset.category || "otros",
     checked: item.classList.contains("is-checked")
   }));
@@ -1002,6 +1004,7 @@ function serializeShoppingItems(items) {
     items.map((item) => ({
       id: item.id ?? "",
       label: item.label ?? "",
+      quantity: Math.max(1, Number(item.quantity) || 1),
       categoryId: item.categoryId ?? "otros",
       checked: Boolean(item.checked)
     }))
@@ -1192,6 +1195,7 @@ function replaceShoppingItems(items, options = {}) {
       addShoppingItem(item.label, {
         itemId: item.id,
         createdAt: item.createdAt,
+        quantity: item.quantity,
         categoryId: item.categoryId,
         checked: item.checked,
         shouldPersist: false,
@@ -1531,6 +1535,7 @@ function addShoppingItem(value, options = {}) {
   const {
     itemId = createShoppingItemId(),
     createdAt = Date.now(),
+    quantity = 1,
     categoryId = getShoppingCategory(value),
     checked = false,
     shouldPersist = true,
@@ -1538,6 +1543,7 @@ function addShoppingItem(value, options = {}) {
     shouldAnimate = true,
     animationSource = "local"
   } = options;
+  const safeQuantity = Math.max(1, Number(quantity) || 1);
   const categoryMeta = getCategoryMeta(categoryId);
   const groupList = ensureCategoryGroup(categoryId);
 
@@ -1546,6 +1552,7 @@ function addShoppingItem(value, options = {}) {
   item.dataset.itemId = itemId;
   item.dataset.createdAt = String(createdAt);
   item.dataset.category = categoryMeta.id;
+  item.dataset.quantity = String(safeQuantity);
 
   const label = document.createElement("span");
   label.className = "shopping-item__label";
@@ -1554,8 +1561,19 @@ function addShoppingItem(value, options = {}) {
   icon.className = `fa-solid ${getCategoryIconClass(categoryMeta.id)} shopping-item__icon`;
   icon.setAttribute("aria-hidden", "true");
 
-  label.textContent = value;
-  label.prepend(icon);
+  const name = document.createElement("span");
+  name.className = "shopping-item__name";
+  name.textContent = value;
+
+  label.append(icon, name);
+
+  if (safeQuantity > 1) {
+    const quantityBadge = document.createElement("span");
+    quantityBadge.className = "shopping-item__quantity";
+    quantityBadge.textContent = `x${safeQuantity}`;
+    quantityBadge.setAttribute("aria-label", `Cantidad ${safeQuantity}`);
+    label.append(quantityBadge);
+  }
 
   const categoryButton = document.createElement("label");
   categoryButton.className = "shopping-item__category";
@@ -1641,7 +1659,7 @@ function findShoppingItemByLabel(value) {
   const normalizedValue = normalizeText(value);
   if (!normalizedValue) return null;
   return Array.from(shoppingList.querySelectorAll(".shopping-item")).find((item) => {
-    const label = item.querySelector(".shopping-item__label")?.textContent ?? "";
+    const label = item.querySelector(".shopping-item__name")?.textContent ?? "";
     return normalizeText(label) === normalizedValue;
   });
 }
@@ -1708,7 +1726,7 @@ function planRecipeForDate({ recipeTitle, dateValue, meal }) {
 async function addRecipeIngredientsToShopping(ingredients) {
   if (!Array.isArray(ingredients) || !ingredients.length) return;
   const existingLabels = new Set(
-    Array.from(shoppingList?.querySelectorAll(".shopping-item__label") ?? [])
+    Array.from(shoppingList?.querySelectorAll(".shopping-item__name") ?? [])
       .map((item) => normalizeText(item.textContent ?? ""))
       .filter(Boolean)
   );
@@ -2006,15 +2024,22 @@ function initShoppingList() {
     event.preventDefault();
     const value = shoppingInput.value.trim();
     if (!value) return;
+    const quantity = Math.max(1, Number(shoppingQuantity?.value) || 1);
     const existingItem = findShoppingItemByLabel(value);
     if (existingItem) {
       shoppingInput.value = "";
+      if (shoppingQuantity) shoppingQuantity.value = "1";
       shoppingInput.focus();
       existingItem.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    addShoppingItem(value);
+    addShoppingItem(value, { quantity });
     shoppingInput.value = "";
+    if (shoppingQuantity) shoppingQuantity.value = "1";
+    shoppingForm.classList.remove("is-submitted");
+    void shoppingForm.offsetWidth;
+    shoppingForm.classList.add("is-submitted");
+    setTimeout(() => shoppingForm.classList.remove("is-submitted"), 260);
     shoppingInput.focus();
   });
   if (clearCheckedBtn) {
