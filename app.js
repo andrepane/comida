@@ -598,7 +598,7 @@ const SHOPPING_SUGGESTIONS_KEY = "shoppingSuggestions";
 const SHOPPING_SUGGESTIONS_DOC_ID = "suggestions";
 const RECIPES_KEY = "recipes";
 const RECIPES_DOC_ID = "items";
-const SHOPPING_SUGGESTIONS_LIMIT = 8;
+const SHOPPING_SUGGESTIONS_LIMIT = 20;
 const SHOPPING_ITEM_HIGHLIGHT_MS = 800;
 const shoppingMotionMediaQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
 
