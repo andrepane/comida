@@ -7,14 +7,21 @@
   --space-4: 12px;
   --space-5: 16px;
   --space-6: 20px;
-  --bg: #f6f5f2;
+  --bg: #fff8f2;
   --card: #ffffff;
-  --text: #1f2937;
-  --muted: #6b7280;
-  --border: #e2e8f0;
-  --primary: #ef6a52;
-  --primary-dark: #d9523b;
-  --recipe-border: rgba(239, 106, 82, 0.35);
+  --text: #2a2540;
+  --muted: #7a728f;
+  --border: #efe2f3;
+  --primary: #ff7e6b;
+  --primary-dark: #f55f6a;
+  --primary-strong: #d94678;
+  --primary-soft: rgba(255, 126, 107, 0.16);
+  --primary-soft-strong: rgba(255, 126, 107, 0.28);
+  --focus-ring: rgba(255, 126, 107, 0.4);
+  --recipe-border: rgba(255, 126, 107, 0.38);
+  --accent-info: #7c5cff;
+  --accent-info-soft: rgba(124, 92, 255, 0.14);
+  --accent-info-border: rgba(124, 92, 255, 0.34);
   --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
   --shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.06);
   --radius-lg: 14px;
@@ -24,14 +31,21 @@
 
 body[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0f172a;
-  --card: #111827;
-  --text: #f8fafc;
-  --muted: #9ca3af;
-  --border: rgba(148, 163, 184, 0.2);
-  --primary: #fb8a75;
-  --primary-dark: #f4725c;
-  --recipe-border: rgba(251, 138, 117, 0.4);
+  --bg: #241b36;
+  --card: #2f2345;
+  --text: #fff8ff;
+  --muted: #c7b7de;
+  --border: rgba(218, 190, 255, 0.26);
+  --primary: #ff9d76;
+  --primary-dark: #ff7f67;
+  --primary-strong: #ffd0ef;
+  --primary-soft: rgba(255, 157, 118, 0.2);
+  --primary-soft-strong: rgba(255, 157, 118, 0.34);
+  --focus-ring: rgba(255, 157, 118, 0.5);
+  --recipe-border: rgba(255, 157, 118, 0.5);
+  --accent-info: #b69cff;
+  --accent-info-soft: rgba(182, 156, 255, 0.2);
+  --accent-info-border: rgba(182, 156, 255, 0.44);
   --shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
   --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.25);
 }
@@ -160,14 +174,14 @@ body.is-menu-open .menu-backdrop {
 }
 
 .menu-toggle {
-  background: rgba(239, 106, 82, 0.14);
+  background: var(--primary-soft);
   color: var(--primary);
   width: 44px;
   height: 44px;
 }
 
 .menu-toggle:hover {
-  background: rgba(239, 106, 82, 0.22);
+  background: var(--primary-soft-strong);
 }
 
 .menu-toggle .fa-bars {
@@ -298,7 +312,7 @@ body[data-theme="dark"] .icon-btn:hover {
 .btn:focus-visible,
 input:focus-visible,
 button:focus-visible {
-  outline: 2px solid rgba(239, 106, 82, 0.35);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -341,7 +355,7 @@ button:focus-visible {
 .switch-btn.is-active {
   background: var(--primary);
   color: #ffffff;
-  box-shadow: 0 8px 16px rgba(239, 106, 82, 0.3);
+  box-shadow: 0 8px 16px var(--primary-soft-strong);
 }
 
 .sidebar-switch .switch-btn {
@@ -485,8 +499,8 @@ body[data-theme="dark"] .day-card.is-empty {
 }
 
 .day-card.is-today {
-  border-color: rgba(239, 106, 82, 0.6);
-  box-shadow: 0 12px 26px rgba(239, 106, 82, 0.2);
+  border-color: var(--recipe-border);
+  box-shadow: 0 12px 26px var(--primary-soft-strong);
 }
 
 .day-card:hover {
@@ -500,7 +514,7 @@ body[data-theme="dark"] .day-card.is-empty {
 
 @keyframes flash {
   0% {
-    background: rgba(239, 106, 82, 0.18);
+    background: var(--primary-soft-strong);
   }
   100% {
     background: var(--card);
@@ -609,7 +623,7 @@ body[data-theme="dark"] .field select {
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.2s ease, background 0.2s ease;
-  box-shadow: 0 8px 16px rgba(239, 106, 82, 0.25);
+  box-shadow: 0 8px 16px var(--primary-soft-strong);
   min-height: 38px;
 }
 
@@ -971,8 +985,8 @@ body[data-theme="dark"] .shopping-category {
 }
 
 .shopping-item--no-motion {
-  outline: 1px solid rgba(59, 130, 246, 0.28);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+  outline: 1px solid var(--accent-info-border);
+  box-shadow: 0 0 0 2px var(--accent-info-soft);
 }
 
 @keyframes shopping-item-enter {
@@ -988,28 +1002,28 @@ body[data-theme="dark"] .shopping-category {
 
 @keyframes shopping-item-highlight {
   0% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.0);
+    box-shadow: 0 0 0 0 transparent;
     border-color: var(--border);
   }
   25% {
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.13);
-    border-color: rgba(59, 130, 246, 0.42);
+    box-shadow: 0 0 0 4px var(--accent-info-soft);
+    border-color: var(--accent-info-border);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.0);
+    box-shadow: 0 0 0 0 transparent;
     border-color: var(--border);
   }
 }
 
 @keyframes shopping-item-highlight-remote {
   0% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.0);
+    box-shadow: 0 0 0 0 transparent;
   }
   25% {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.09);
+    box-shadow: 0 0 0 3px var(--accent-info-soft);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.0);
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 
@@ -1043,15 +1057,15 @@ body[data-theme="dark"] .shopping-item {
   font-size: 11px;
   font-weight: 700;
   color: var(--primary-strong);
-  border: 1px solid rgba(59, 130, 246, 0.28);
-  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid var(--accent-info-border);
+  background: var(--accent-info-soft);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
 
 body[data-theme="dark"] .shopping-item__quantity {
-  color: #bfdbfe;
-  background: rgba(59, 130, 246, 0.18);
-  border-color: rgba(147, 197, 253, 0.28);
+  color: var(--primary-strong);
+  background: var(--accent-info-soft);
+  border-color: var(--accent-info-border);
   box-shadow: none;
 }
 
@@ -1256,7 +1270,7 @@ body[data-theme="dark"] .recipe-ingredients-panel {
 
 .recipe-card__media {
   height: 130px;
-  background: linear-gradient(135deg, rgba(239, 106, 82, 0.85), rgba(251, 191, 36, 0.7));
+  background: linear-gradient(135deg, rgba(255, 126, 107, 0.88), rgba(255, 201, 82, 0.75));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1264,7 +1278,7 @@ body[data-theme="dark"] .recipe-ingredients-panel {
 }
 
 body[data-theme="dark"] .recipe-card__media {
-  background: linear-gradient(135deg, rgba(251, 138, 117, 0.9), rgba(56, 189, 248, 0.55));
+  background: linear-gradient(135deg, rgba(255, 157, 118, 0.92), rgba(182, 156, 255, 0.6));
 }
 
 .recipe-card__icon {
@@ -1908,4 +1922,3 @@ body[data-theme="dark"] .recipe-field select {
   .shopping-quantity-field{ grid-area: qty; }
   .shopping-form > .btn[type="submit"]{ grid-area: btn; width: 100%; }
 }
-
