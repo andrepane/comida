@@ -1852,3 +1852,60 @@ body[data-theme="dark"] .recipe-field select {
     padding-right: 10px;
   }
 }
+
+/* ===== Compra: input grande + selector pill + botón en la misma línea ===== */
+.shopping-form{
+  display: grid;
+  grid-template-columns: 1fr auto auto; /* input / cantidad / botón */
+  gap: 10px;
+  align-items: end;
+}
+
+.shopping-form > .field{
+  min-width: 0; /* clave para que el input pueda ocupar 1fr */
+}
+
+.shopping-form > .field input{
+  width: 100%;
+}
+
+/* Cantidad: pill compacto */
+.shopping-quantity-field{
+  min-width: 0;
+}
+
+.shopping-quantity-field span{
+  display: none; /* no queremos "Cantidad" ocupando sitio */
+}
+
+.shopping-quantity-field select{
+  width: auto !important;
+  min-width: 56px;
+  height: 38px;
+  padding: 0 28px 0 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-align: center;
+
+  -webkit-appearance: none;
+  appearance: none;
+
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+}
+
+/* iPhone muy estrecho: si no cabe, baja SOLO el botón (no el input + pill) */
+@media (max-width: 360px){
+  .shopping-form{
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "input qty"
+      "btn btn";
+  }
+  .shopping-form > .field{ grid-area: input; }
+  .shopping-quantity-field{ grid-area: qty; }
+  .shopping-form > .btn[type="submit"]{ grid-area: btn; width: 100%; }
+}
+
