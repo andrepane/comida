@@ -1795,3 +1795,60 @@ body[data-theme="dark"] .recipe-field select {
   }
 }
 
+/* ===== Compra: input + cantidad en la MISMA línea (móvil y desktop) ===== */
+.shopping-form {
+  flex-wrap: nowrap;              /* no permitir salto de línea */
+  align-items: flex-end;
+}
+
+.shopping-form .field {
+  min-width: 0;                   /* clave: que el input pueda encogerse */
+}
+
+/* El campo de ingrediente ocupa el espacio disponible */
+.shopping-form > .field:not(.shopping-quantity-field) {
+  flex: 1 1 auto;
+}
+
+/* Cantidad: compacto tipo pill */
+.shopping-quantity-field {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.shopping-quantity-field span {
+  display: none;                  /* oculta "Cantidad" para que no empuje */
+}
+
+/* pill x2 */
+.shopping-quantity-field select {
+  width: auto !important;
+  min-width: 56px;
+  height: 38px;
+  padding: 0 28px 0 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-align: center;
+
+  -webkit-appearance: none;
+  appearance: none;
+
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+}
+
+/* En pantallas muy pequeñas, permitimos que el botón no rompa la línea */
+@media (max-width: 380px) {
+  .shopping-form {
+    gap: 8px;
+  }
+  .shopping-quantity-field select {
+    min-width: 52px;
+  }
+  .btn[type="submit"] {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
