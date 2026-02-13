@@ -712,6 +712,29 @@ body[data-theme="dark"] .empty-state {
   min-width: 190px;
 }
 
+.shopping-quantity-field {
+  flex: 0 0 auto;
+  min-width: 88px;
+}
+
+.shopping-quantity-field select {
+  padding: 0 24px 0 10px;
+  min-height: 40px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.shopping-form--confirm .btn[type="submit"] {
+  animation: shopping-confirm-pop 260ms ease-out;
+}
+
+@keyframes shopping-confirm-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
 .shopping-suggestions {
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
@@ -998,12 +1021,35 @@ body[data-theme="dark"] .shopping-item {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+  word-break: break-word;
+}
+
+.shopping-item__name {
   word-break: break-word;
 }
 
 .shopping-item__icon {
   font-size: 1em;
   opacity: 0.8;
+}
+
+.shopping-item__quantity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--category-accent, var(--primary)) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--category-accent, var(--primary)) 48%, transparent);
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+body[data-theme="dark"] .shopping-item__quantity {
+  background: color-mix(in srgb, var(--category-accent, var(--primary)) 28%, rgba(15, 23, 42, 0.6));
 }
 
 .shopping-item__select {
@@ -1529,6 +1575,14 @@ body[data-theme="dark"] .recipe-field select {
 }
 
 @supports (-webkit-touch-callout: none) {
+  .shopping-quantity-field {
+    min-width: 74px;
+  }
+
+  .shopping-quantity-field select {
+    padding-inline: 8px 20px;
+  }
+
   .shopping-item {
     flex-wrap: wrap;
     align-items: flex-start;

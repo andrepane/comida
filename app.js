@@ -36,6 +36,7 @@ const rangeTitle = document.getElementById("rangeTitle");
 const rangeSubtitle = document.getElementById("rangeSubtitle");
 const shoppingForm = document.getElementById("shoppingForm");
 const shoppingInput = document.getElementById("shoppingInput");
+const shoppingQuantity = document.getElementById("shoppingQuantity");
 const shoppingList = document.getElementById("shoppingList");
 const shoppingEmpty = document.getElementById("shoppingEmpty");
 const shoppingSuggestions = document.getElementById("shoppingSuggestions");
@@ -991,7 +992,8 @@ function getShoppingItemsFromDom() {
   return Array.from(shoppingList.querySelectorAll(".shopping-item")).map((item) => ({
     id: item.dataset.itemId || "",
     createdAt: Number(item.dataset.createdAt) || Date.now(),
-    label: item.querySelector(".shopping-item__label")?.textContent ?? "",
+    label: item.dataset.itemLabel || item.querySelector(".shopping-item__name")?.textContent ?? "",
+    quantity: Math.max(1, Number(item.dataset.quantity) || 1),
     categoryId: item.dataset.category || "otros",
     checked: item.classList.contains("is-checked")
   }));
@@ -1002,10 +1004,48 @@ function serializeShoppingItems(items) {
     items.map((item) => ({
       id: item.id ?? "",
       label: item.label ?? "",
+      quantity: Math.max(1, Number(item.quantity) || 1),
       categoryId: item.categoryId ?? "otros",
       checked: Boolean(item.checked)
     }))
   );
+}
+
+function getDisplayQuantity(quantity) {
+  return Math.max(1, Number(quantity) || 1);
+}
+
+function getItemLabelForCompare(item) {
+  return item.dataset.itemLabel || item.querySelector(".shopping-item__name")?.textContent ?? "";
+}
+
+function renderShoppingItemLabel(container, value, quantity, categoryId) {
+  container.textContent = "";
+
+  const icon = document.createElement("i");
+  icon.className = `fa-solid ${getCategoryIconClass(categoryId)} shopping-item__icon`;
+  icon.setAttribute("aria-hidden", "true");
+
+  const name = document.createElement("span");
+  name.className = "shopping-item__name";
+  name.textContent = value;
+
+  container.append(icon, name);
+
+  if (quantity > 1) {
+    const quantityPill = document.createElement("span");
+    quantityPill.className = "shopping-item__quantity";
+    quantityPill.setAttribute("aria-label", `Cantidad ${quantity}`);
+    quantityPill.textContent = `x${quantity}`;
+    container.append(quantityPill);
+  }
+}
+
+function triggerShoppingConfirmFeedback() {
+  if (!shoppingForm) return;
+  shoppingForm.classList.remove("shopping-form--confirm");
+  void shoppingForm.offsetWidth;
+  shoppingForm.classList.add("shopping-form--confirm");
 }
 
 function serializeShoppingSuggestions(suggestions) {
@@ -1194,6 +1234,7 @@ function replaceShoppingItems(items, options = {}) {
         createdAt: item.createdAt,
         categoryId: item.categoryId,
         checked: item.checked,
+        quantity: item.quantity,
         shouldPersist: false,
         shouldTrackSuggestions: false,
         shouldAnimate: shouldAnimateNew && identity ? !knownItems.has(identity) : false,
@@ -1533,6 +1574,7 @@ function addShoppingItem(value, options = {}) {
     createdAt = Date.now(),
     categoryId = getShoppingCategory(value),
     checked = false,
+    quantity = 1,
     shouldPersist = true,
     shouldTrackSuggestions = true,
     shouldAnimate = true,
@@ -1546,16 +1588,13 @@ function addShoppingItem(value, options = {}) {
   item.dataset.itemId = itemId;
   item.dataset.createdAt = String(createdAt);
   item.dataset.category = categoryMeta.id;
+  item.dataset.itemLabel = value;
+  item.dataset.quantity = String(getDisplayQuantity(quantity));
 
   const label = document.createElement("span");
   label.className = "shopping-item__label";
 
-  const icon = document.createElement("i");
-  icon.className = `fa-solid ${getCategoryIconClass(categoryMeta.id)} shopping-item__icon`;
-  icon.setAttribute("aria-hidden", "true");
-
-  label.textContent = value;
-  label.prepend(icon);
+  renderShoppingItemLabel(label, value, getDisplayQuantity(quantity), categoryMeta.id);
 
   const categoryButton = document.createElement("label");
   categoryButton.className = "shopping-item__category";
@@ -1641,7 +1680,7 @@ function findShoppingItemByLabel(value) {
   const normalizedValue = normalizeText(value);
   if (!normalizedValue) return null;
   return Array.from(shoppingList.querySelectorAll(".shopping-item")).find((item) => {
-    const label = item.querySelector(".shopping-item__label")?.textContent ?? "";
+    const label = getItemLabelForCompare(item);
     return normalizeText(label) === normalizedValue;
   });
 }
@@ -1709,7 +1748,7 @@ async function addRecipeIngredientsToShopping(ingredients) {
   if (!Array.isArray(ingredients) || !ingredients.length) return;
   const existingLabels = new Set(
     Array.from(shoppingList?.querySelectorAll(".shopping-item__label") ?? [])
-      .map((item) => normalizeText(item.textContent ?? ""))
+      .map((item) => normalizeText(item.closest(".shopping-item")?.dataset.itemLabel ?? item.querySelector(".shopping-item__name")?.textContent ?? ""))
       .filter(Boolean)
   );
   const normalizedIngredients = ingredients
@@ -2006,15 +2045,19 @@ function initShoppingList() {
     event.preventDefault();
     const value = shoppingInput.value.trim();
     if (!value) return;
+    const quantity = Math.max(1, Number(shoppingQuantity?.value) || 1);
     const existingItem = findShoppingItemByLabel(value);
     if (existingItem) {
       shoppingInput.value = "";
+      if (shoppingQuantity) shoppingQuantity.value = "1";
       shoppingInput.focus();
       existingItem.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    addShoppingItem(value);
+    addShoppingItem(value, { quantity });
+    triggerShoppingConfirmFeedback();
     shoppingInput.value = "";
+    if (shoppingQuantity) shoppingQuantity.value = "1";
     shoppingInput.focus();
   });
   if (clearCheckedBtn) {
