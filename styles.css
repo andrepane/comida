@@ -727,7 +727,7 @@ body[data-theme="dark"] .empty-state {
 
 .shopping-quantity-field {
   flex: 0 0 auto;
-  min-width: 88px;
+  min-width: 58px;
 }
 
 .shopping-quantity-field select {
@@ -735,6 +735,8 @@ body[data-theme="dark"] .empty-state {
   text-align: center;
   font-weight: 700;
   letter-spacing: 0.02em;
+  font-size: 12px;
+  padding: 8px 18px 8px 8px;
 }
 
 .shopping-form.is-submitted .btn[type="submit"] {
@@ -1762,12 +1764,13 @@ body[data-theme="dark"] .recipe-field select {
   }
 
   .shopping-quantity-field {
-    min-width: 76px;
+    min-width: 52px;
   }
 
   .shopping-quantity-field select {
-    padding-left: 8px;
-    padding-right: 20px;
+    font-size: 11px;
+    padding-left: 6px;
+    padding-right: 16px;
   }
 }
 
