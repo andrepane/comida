@@ -44,6 +44,7 @@ const shoppingSuggestionsList = document.getElementById("shoppingSuggestionsList
 const shoppingSuggestionsEmpty = document.getElementById("shoppingSuggestionsEmpty");
 const recipesForm = document.getElementById("recipesForm");
 const recipesInput = document.getElementById("recipesInput");
+const recipeCategoryInput = document.getElementById("recipeCategoryInput");
 const recipeIngredientInput = document.getElementById("recipeIngredientInput");
 const recipeIngredientAdd = document.getElementById("recipeIngredientAdd");
 const recipeIngredientsList = document.getElementById("recipeIngredientsList");
@@ -672,12 +673,19 @@ function normalizeRecipeIngredients(ingredients) {
     .filter((ingredient) => ingredient.label);
 }
 
+function normalizeRecipeCategoryId(categoryId) {
+  if (!categoryId) return "";
+  const normalized = categoryId.trim();
+  return SHOPPING_CATEGORIES.some((category) => category.id === normalized) ? normalized : "";
+}
+
 function serializeRecipesForCompare(recipes) {
   if (!Array.isArray(recipes)) return "[]";
   return JSON.stringify(
     recipes.map((recipe) => ({
       id: recipe?.id ?? "",
       title: recipe?.title?.trim() ?? "",
+      categoryId: normalizeRecipeCategoryId(recipe?.categoryId),
       ingredients: normalizeRecipeIngredients(recipe?.ingredients)
     }))
   );
@@ -821,6 +829,7 @@ function getRecipesFromDom() {
   return Array.from(recipesList.querySelectorAll(".recipe-item")).map((item) => ({
     id: item.dataset.recipeId || generateRecipeId(),
     title: item.querySelector(".recipe-title")?.textContent?.trim() ?? "",
+    categoryId: item.dataset.recipeCategory || "",
     ingredients: getRecipeIngredientsFromList(item.querySelector(".recipe-ingredients__list"))
   })).filter((recipe) => recipe.title);
 }
@@ -1434,6 +1443,35 @@ function getRecipeVisualCategory(ingredients = []) {
   return prioritized[0]?.[0] || "otros";
 }
 
+function getResolvedRecipeCategoryId({ categoryId = "", ingredients = [] } = {}) {
+  const normalizedCategoryId = normalizeRecipeCategoryId(categoryId);
+  if (normalizedCategoryId) return normalizedCategoryId;
+  return getRecipeVisualCategory(ingredients);
+}
+
+function buildRecipeCategorySelect({ selectedCategoryId = "" } = {}) {
+  const select = document.createElement("select");
+  select.className = "recipe-category-select";
+
+  const automaticOption = document.createElement("option");
+  automaticOption.value = "";
+  automaticOption.textContent = "Automática";
+  automaticOption.selected = !selectedCategoryId;
+  select.append(automaticOption);
+
+  SHOPPING_CATEGORIES.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category.id;
+    option.textContent = category.label;
+    if (category.id === selectedCategoryId) {
+      option.selected = true;
+    }
+    select.append(option);
+  });
+
+  return select;
+}
+
 function getCategoryIconClass(categoryId) {
   if (categoryId === "higiene") {
     return categoryIcons.limpieza;
@@ -1845,12 +1883,17 @@ function addRecipeItem(recipe, options = {}) {
   if (!recipesList) return;
   const { shouldPersist = true } = options;
   const recipeIngredients = normalizeRecipeIngredients(recipe.ingredients);
-  const recipeCategoryId = getRecipeVisualCategory(recipeIngredients);
+  const recipeCategoryId = normalizeRecipeCategoryId(recipe.categoryId);
+  const visualRecipeCategoryId = getResolvedRecipeCategoryId({
+    categoryId: recipeCategoryId,
+    ingredients: recipeIngredients
+  });
   const item = document.createElement("li");
   item.className = "recipe-item";
   item.dataset.recipeId = recipe.id;
   item.dataset.recipeTitle = normalizeText(recipe.title);
-  item.dataset.category = recipeCategoryId;
+  item.dataset.recipeCategory = recipeCategoryId;
+  item.dataset.category = visualRecipeCategoryId;
 
   const card = document.createElement("button");
   card.type = "button";
@@ -1863,8 +1906,18 @@ function addRecipeItem(recipe, options = {}) {
   const cardIcon = document.createElement("span");
   cardIcon.className = "recipe-card__icon";
   cardIcon.setAttribute("aria-hidden", "true");
-  cardIcon.textContent = recipeCategoryEmojis[recipeCategoryId] || recipeCategoryEmojis.otros;
+  cardIcon.textContent = recipeCategoryEmojis[visualRecipeCategoryId] || recipeCategoryEmojis.otros;
   cardMedia.append(cardIcon);
+
+  const applyRecipeCategoryPresentation = () => {
+    const ingredients = getRecipeIngredientsFromList(ingredientsList);
+    const resolvedCategoryId = getResolvedRecipeCategoryId({
+      categoryId: item.dataset.recipeCategory || "",
+      ingredients
+    });
+    item.dataset.category = resolvedCategoryId;
+    cardIcon.textContent = recipeCategoryEmojis[resolvedCategoryId] || recipeCategoryEmojis.otros;
+  };
 
   const cardTitle = document.createElement("span");
   cardTitle.className = "recipe-card__title recipe-title";
@@ -1886,9 +1939,11 @@ function addRecipeItem(recipe, options = {}) {
     const ingredientItem = buildRecipeIngredientItem(ingredient, {
       onRemove: () => {
         refreshRecipeIngredientsEmptyState(ingredientsList);
+        applyRecipeCategoryPresentation();
         persistRecipes();
       },
       onCategoryChange: () => {
+        applyRecipeCategoryPresentation();
         persistRecipes();
       },
       onToggleInclude: () => {
@@ -1918,9 +1973,11 @@ function addRecipeItem(recipe, options = {}) {
     const ingredientItem = buildRecipeIngredientItem({ label: value }, {
       onRemove: () => {
         refreshRecipeIngredientsEmptyState(ingredientsList);
+        applyRecipeCategoryPresentation();
         persistRecipes();
       },
       onCategoryChange: () => {
+        applyRecipeCategoryPresentation();
         persistRecipes();
       },
       onToggleInclude: () => {
@@ -1929,6 +1986,7 @@ function addRecipeItem(recipe, options = {}) {
     });
     ingredientsList.append(ingredientItem);
     refreshRecipeIngredientsEmptyState(ingredientsList);
+    applyRecipeCategoryPresentation();
     ingredientInput.value = "";
     ingredientInput.focus();
     persistRecipes();
@@ -1948,6 +2006,18 @@ function addRecipeItem(recipe, options = {}) {
 
   const actions = document.createElement("div");
   actions.className = "recipe-actions";
+
+  const categoryField = document.createElement("label");
+  categoryField.className = "recipe-field";
+  const categoryLabel = document.createElement("span");
+  categoryLabel.textContent = "Categoría";
+  const categorySelect = buildRecipeCategorySelect({ selectedCategoryId: recipeCategoryId });
+  categorySelect.addEventListener("change", () => {
+    item.dataset.recipeCategory = normalizeRecipeCategoryId(categorySelect.value);
+    applyRecipeCategoryPresentation();
+    persistRecipes();
+  });
+  categoryField.append(categoryLabel, categorySelect);
 
   const dateField = document.createElement("label");
   dateField.className = "recipe-field";
@@ -1995,7 +2065,7 @@ function addRecipeItem(recipe, options = {}) {
     closeRecipeModal(item);
   });
 
-  actions.append(dateField, mealField, addButton, deleteButton);
+  actions.append(categoryField, dateField, mealField, addButton, deleteButton);
 
   const modal = document.createElement("div");
   modal.className = "recipe-modal";
@@ -2042,6 +2112,7 @@ function addRecipeItem(recipe, options = {}) {
   });
 
   item.append(card, modal);
+  applyRecipeCategoryPresentation();
   recipesList.append(item);
   updateRecipesEmptyState();
   applyRecipesFilter();
@@ -2115,6 +2186,13 @@ function initShoppingList() {
 
 function initRecipesList() {
   if (!recipesForm || !recipesInput || !recipesList) return;
+  if (recipeCategoryInput) {
+    const formCategorySelect = buildRecipeCategorySelect();
+    formCategorySelect.id = "recipeCategoryInput";
+    formCategorySelect.name = "recipeCategoryInput";
+    recipeCategoryInput.replaceWith(formCategorySelect);
+  }
+  const currentRecipeCategoryInput = document.getElementById("recipeCategoryInput");
   if (recipeIngredientAdd && recipeIngredientInput) {
     recipeIngredientAdd.addEventListener("click", () => {
       const value = recipeIngredientInput.value.trim();
@@ -2134,8 +2212,12 @@ function initRecipesList() {
     const value = recipesInput.value.trim();
     if (!value) return;
     const ingredients = getRecipeIngredientsFromList(recipeIngredientsList);
-    addRecipeItem({ id: generateRecipeId(), title: value, ingredients });
+    const categoryId = normalizeRecipeCategoryId(currentRecipeCategoryInput?.value || "");
+    addRecipeItem({ id: generateRecipeId(), title: value, categoryId, ingredients });
     recipesInput.value = "";
+    if (currentRecipeCategoryInput) {
+      currentRecipeCategoryInput.value = "";
+    }
     recipesInput.focus();
     clearRecipeIngredientsDraft();
   });
