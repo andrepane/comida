@@ -45,6 +45,9 @@ const shoppingSuggestionsEmpty = document.getElementById("shoppingSuggestionsEmp
 const recipesForm = document.getElementById("recipesForm");
 const recipesInput = document.getElementById("recipesInput");
 const recipeCategoryInput = document.getElementById("recipeCategoryInput");
+const recipeProteinInput = document.getElementById("recipeProteinInput");
+const recipeCarbsInput = document.getElementById("recipeCarbsInput");
+const recipeVeggiesInput = document.getElementById("recipeVeggiesInput");
 const recipeIngredientInput = document.getElementById("recipeIngredientInput");
 const recipeIngredientAdd = document.getElementById("recipeIngredientAdd");
 const recipeIngredientsList = document.getElementById("recipeIngredientsList");
@@ -153,6 +156,12 @@ const state = {
   lastError: null,
   remoteNoticeTimer: null,
   seenDays: new Set()
+};
+
+const EMPTY_MEAL_COMPONENTS = {
+  protein: "",
+  carbs: "",
+  veggies: ""
 };
 
 function loadDuplicateIngredientChoice() {
@@ -330,6 +339,51 @@ function formatDayName(date) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+function normalizeMealComponents(components) {
+  return {
+    protein: components?.protein?.trim?.() ?? "",
+    carbs: components?.carbs?.trim?.() ?? "",
+    veggies: components?.veggies?.trim?.() ?? ""
+  };
+}
+
+function getMealSummary(mealEntry) {
+  const entry = normalizeMealEntry(mealEntry);
+  const componentValues = [entry.components.protein, entry.components.carbs, entry.components.veggies]
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (componentValues.length) return componentValues.join(" + ");
+  return entry.title;
+}
+
+function normalizeMealEntry(mealEntry) {
+  if (typeof mealEntry === "string") {
+    return {
+      title: mealEntry.trim(),
+      components: { ...EMPTY_MEAL_COMPONENTS }
+    };
+  }
+  const title = mealEntry?.title?.trim?.() ?? "";
+  const components = normalizeMealComponents(mealEntry?.components);
+  return {
+    title,
+    components,
+    recipeId: mealEntry?.recipeId || ""
+  };
+}
+
+function hasMealEntryContent(mealEntry) {
+  const summary = getMealSummary(mealEntry);
+  return Boolean(summary.trim());
+}
+
+function normalizeDayDoc(dayData = {}) {
+  return {
+    lunch: normalizeMealEntry(dayData.lunch),
+    dinner: normalizeMealEntry(dayData.dinner)
+  };
+}
+
 function updateStatus() {
   if (!state.userId) {
     syncStatus.textContent = "Preparando…";
@@ -411,64 +465,71 @@ function buildCalendar() {
     clearBtn.textContent = "Limpiar";
     header.append(title, clearBtn);
 
-    const statusRow = document.createElement("div");
-    statusRow.className = "day-status";
+    const mealsContainer = document.createElement("div");
+    mealsContainer.className = "meal-rows";
 
-    const lunchStatus = document.createElement("span");
-    lunchStatus.className = "day-chip";
-    lunchStatus.textContent = "Comida";
+    const createMealRow = (mealId, label) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "meal-row";
+      row.setAttribute("aria-label", `Editar ${label.toLowerCase()} de ${formatDayName(date)}`);
 
-    const dinnerStatus = document.createElement("span");
-    dinnerStatus.className = "day-chip";
-    dinnerStatus.textContent = "Cena";
+      const status = document.createElement("span");
+      status.className = "day-chip";
+      status.textContent = label;
 
-    statusRow.append(lunchStatus, dinnerStatus);
+      const content = document.createElement("div");
+      content.className = "meal-row__content";
 
-    const lunchField = document.createElement("div");
-    lunchField.className = "field";
-    const lunchLabel = document.createElement("label");
-    lunchLabel.textContent = "Comida";
-    const lunchInput = document.createElement("input");
-    lunchInput.type = "text";
-    lunchInput.placeholder = "Ej: Ensalada rápida";
-    lunchField.append(lunchLabel, lunchInput);
+      const summary = document.createElement("div");
+      summary.className = "meal-summary";
+      summary.textContent = "Añadir plato";
 
-    const dinnerField = document.createElement("div");
-    dinnerField.className = "field";
-    const dinnerLabel = document.createElement("label");
-    dinnerLabel.textContent = "Cena";
-    const dinnerInput = document.createElement("input");
-    dinnerInput.type = "text";
-    dinnerInput.placeholder = "Ej: Pasta al horno";
-    dinnerField.append(dinnerLabel, dinnerInput);
+      const chips = document.createElement("div");
+      chips.className = "meal-components";
+      [
+        ["protein", "P"],
+        ["carbs", "H"],
+        ["veggies", "V"]
+      ].forEach(([key, short]) => {
+        const chip = document.createElement("span");
+        chip.className = "meal-component-chip";
+        chip.dataset.component = key;
+        chip.innerHTML = `<strong>${short}</strong><span>+</span>`;
+        chips.append(chip);
+      });
 
-    card.append(header, statusRow, lunchField, dinnerField);
+      content.append(summary, chips);
+      row.append(status, content);
+      row.addEventListener("click", () => {
+        openMealEntryEditor({ dateId, meal: mealId, dateLabel: formatDayName(date) });
+      });
+      return { row, status, summary, chips };
+    };
+
+    const lunchElements = createMealRow("lunch", "Comida");
+    const dinnerElements = createMealRow("dinner", "Cena");
+    mealsContainer.append(lunchElements.row, dinnerElements.row);
+
+    card.append(header, mealsContainer);
     calendarGrid.append(card);
 
     state.dayElements.set(dateId, {
-      lunchInput,
-      dinnerInput,
       clearBtn,
-      lunchStatus,
-      dinnerStatus,
-      card
+      card,
+      lunch: { ...lunchElements, entry: normalizeMealEntry(null) },
+      dinner: { ...dinnerElements, entry: normalizeMealEntry(null) }
     });
 
-    lunchInput.addEventListener("input", () => {
-      updateDayState(dateId, lunchInput.value, dinnerInput.value);
-      scheduleSave(dateId);
-    });
-    dinnerInput.addEventListener("input", () => {
-      updateDayState(dateId, lunchInput.value, dinnerInput.value);
-      scheduleSave(dateId);
-    });
     clearBtn.addEventListener("click", () => {
-      lunchInput.value = "";
-      dinnerInput.value = "";
-      updateDayState(dateId, "", "");
+      updateInputs(dateId, {
+        lunch: normalizeMealEntry(null),
+        dinner: normalizeMealEntry(null)
+      });
       scheduleSave(dateId, true);
     });
-    updateDayState(dateId, "", "");
+
+    updateInputs(dateId, { lunch: normalizeMealEntry(null), dinner: normalizeMealEntry(null) });
   }
 
   updateRangeLabels();
@@ -492,39 +553,67 @@ function attachListeners() {
     const unsubscribe = onSnapshot(docRef, (snapshot) => {
       const data = snapshot.data();
       if (!data) {
-        updateInputs(dateId, "", "");
+        updateInputs(dateId, normalizeDayDoc());
         return;
       }
       if (state.seenDays.has(dateId) && data.updatedBy && data.updatedBy !== state.userId) {
         notifyRemoteChange(dateId);
       }
       state.seenDays.add(dateId);
-      updateInputs(dateId, data.lunch || "", data.dinner || "");
+      updateInputs(dateId, normalizeDayDoc(data));
     });
     state.unsubscribes.set(dateId, unsubscribe);
   });
 }
 
-function updateInputs(dateId, lunchValue, dinnerValue) {
+function updateMealRow(mealElements, mealEntry) {
+  const summary = getMealSummary(mealEntry);
+  mealElements.entry = normalizeMealEntry(mealEntry);
+  mealElements.summary.textContent = summary || "Añadir plato";
+  mealElements.summary.title = summary;
+
+  const chips = mealElements.chips.querySelectorAll('.meal-component-chip');
+  const componentMap = [
+    ["protein", "P"],
+    ["carbs", "H"],
+    ["veggies", "V"]
+  ];
+  componentMap.forEach(([key, short], index) => {
+    const chip = chips[index];
+    if (!chip) return;
+    const value = mealElements.entry.components[key];
+    chip.classList.toggle("is-empty", !value);
+    chip.classList.toggle("is-filled", Boolean(value));
+    chip.replaceChildren();
+    const shortLabel = document.createElement("strong");
+    shortLabel.textContent = short;
+    const content = document.createElement("span");
+    content.textContent = value || "+";
+    chip.append(shortLabel, content);
+    chip.title = value || `Añadir ${short}`;
+  });
+
+  const hasValue = hasMealEntryContent(mealElements.entry);
+  mealElements.status.classList.toggle("is-filled", hasValue);
+  mealElements.status.classList.toggle("is-empty", !hasValue);
+}
+
+function updateInputs(dateId, dayData) {
   const elements = state.dayElements.get(dateId);
   if (!elements) return;
-  const card = elements.lunchInput.closest(".day-card");
+  const normalizedDayData = normalizeDayDoc(dayData);
   const shouldFlash =
-    (document.activeElement !== elements.lunchInput && lunchValue !== elements.lunchInput.value) ||
-    (document.activeElement !== elements.dinnerInput && dinnerValue !== elements.dinnerInput.value);
+    getMealSummary(elements.lunch.entry) !== getMealSummary(normalizedDayData.lunch) ||
+    getMealSummary(elements.dinner.entry) !== getMealSummary(normalizedDayData.dinner);
 
-  if (document.activeElement !== elements.lunchInput) {
-    elements.lunchInput.value = lunchValue;
-  }
-  if (document.activeElement !== elements.dinnerInput) {
-    elements.dinnerInput.value = dinnerValue;
-  }
+  updateMealRow(elements.lunch, normalizedDayData.lunch);
+  updateMealRow(elements.dinner, normalizedDayData.dinner);
 
-  if (card && shouldFlash) {
-    triggerFlash(card, dateId);
+  if (shouldFlash) {
+    triggerFlash(elements.card, dateId);
   }
 
-  updateDayState(dateId, lunchValue, dinnerValue);
+  updateDayState(dateId);
 }
 
 function triggerFlash(card, dateId) {
@@ -573,8 +662,8 @@ async function saveDay(dateId) {
     await setDoc(
       docRef,
       {
-        lunch: elements.lunchInput.value.trim(),
-        dinner: elements.dinnerInput.value.trim(),
+        lunch: normalizeMealEntry(elements.lunch.entry),
+        dinner: normalizeMealEntry(elements.dinner.entry),
         updatedAt: serverTimestamp(),
         updatedBy: state.userId
       },
@@ -673,6 +762,10 @@ function normalizeRecipeIngredients(ingredients) {
     .filter((ingredient) => ingredient.label);
 }
 
+function normalizeRecipeComponents(components) {
+  return normalizeMealComponents(components);
+}
+
 function normalizeRecipeCategoryId(categoryId) {
   if (!categoryId) return "";
   const normalized = categoryId.trim();
@@ -686,6 +779,7 @@ function serializeRecipesForCompare(recipes) {
       id: recipe?.id ?? "",
       title: recipe?.title?.trim() ?? "",
       categoryId: normalizeRecipeCategoryId(recipe?.categoryId),
+      components: normalizeRecipeComponents(recipe?.components),
       ingredients: normalizeRecipeIngredients(recipe?.ingredients)
     }))
   );
@@ -830,6 +924,11 @@ function getRecipesFromDom() {
     id: item.dataset.recipeId || generateRecipeId(),
     title: item.querySelector(".recipe-title")?.textContent?.trim() ?? "",
     categoryId: item.dataset.recipeCategory || "",
+    components: {
+      protein: item.dataset.recipeProtein || "",
+      carbs: item.dataset.recipeCarbs || "",
+      veggies: item.dataset.recipeVeggies || ""
+    },
     ingredients: getRecipeIngredientsFromList(item.querySelector(".recipe-ingredients__list"))
   })).filter((recipe) => recipe.title);
 }
@@ -1768,7 +1867,130 @@ function isDateInCurrentRange(date) {
   return date >= start && date <= end;
 }
 
-function planRecipeForDate({ recipeTitle, dateValue, meal }) {
+function getRecentComponentValues(componentKey) {
+  const values = new Set();
+  state.dayElements.forEach((day) => {
+    [day.lunch.entry, day.dinner.entry].forEach((entry) => {
+      const value = normalizeMealEntry(entry).components[componentKey];
+      if (value) values.add(value);
+    });
+  });
+  loadRecipes().forEach((recipe) => {
+    const value = normalizeRecipeComponents(recipe.components)[componentKey];
+    if (value) values.add(value);
+  });
+  return Array.from(values).slice(0, 12);
+}
+
+function buildAutocompleteList(id, values) {
+  const datalist = document.createElement("datalist");
+  datalist.id = id;
+  values.forEach((value) => {
+    const option = document.createElement("option");
+    option.value = value;
+    datalist.append(option);
+  });
+  return datalist;
+}
+
+function openMealEntryEditor({ dateId, meal, dateLabel }) {
+  const day = state.dayElements.get(dateId);
+  if (!day) return;
+  const mealKey = meal === "dinner" ? "dinner" : "lunch";
+  const currentEntry = normalizeMealEntry(day[mealKey].entry);
+
+  const overlay = document.createElement("div");
+  overlay.className = "app-modal-overlay";
+  overlay.setAttribute("role", "presentation");
+
+  const modal = document.createElement("form");
+  modal.className = "app-modal meal-editor-modal";
+  modal.setAttribute("aria-label", `Editar ${mealKey === "lunch" ? "comida" : "cena"}`);
+
+  const title = document.createElement("h3");
+  title.className = "app-modal__title";
+  title.textContent = `${mealKey === "lunch" ? "Comida" : "Cena"} · ${dateLabel}`;
+
+  const fields = [
+    ["protein", "Proteína (P)", "Ej: pollo plancha"],
+    ["carbs", "Hidratos (H)", "Ej: arroz"],
+    ["veggies", "Verduras (V)", "Ej: calabacín"]
+  ];
+  const inputs = {};
+
+  fields.forEach(([key, label, placeholder]) => {
+    const wrapper = document.createElement("label");
+    wrapper.className = "field";
+    const span = document.createElement("span");
+    span.textContent = label;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = placeholder;
+    input.value = currentEntry.components[key] || "";
+    const listId = `meal-recent-${key}-${Date.now()}`;
+    input.setAttribute("list", listId);
+    wrapper.append(span, input, buildAutocompleteList(listId, getRecentComponentValues(key)));
+    modal.append(wrapper);
+    inputs[key] = input;
+  });
+
+  const notesField = document.createElement("label");
+  notesField.className = "field";
+  notesField.innerHTML = "<span>Título / nota (opcional)</span>";
+  const notesInput = document.createElement("input");
+  notesInput.type = "text";
+  notesInput.value = currentEntry.title || "";
+  notesInput.placeholder = "Opcional";
+  notesField.append(notesInput);
+
+  const actions = document.createElement("div");
+  actions.className = "app-modal__actions";
+  const cancelButton = document.createElement("button");
+  cancelButton.type = "button";
+  cancelButton.className = "btn ghost";
+  cancelButton.textContent = "Cancelar";
+  const saveButton = document.createElement("button");
+  saveButton.type = "submit";
+  saveButton.className = "btn secondary";
+  saveButton.textContent = "Guardar";
+  actions.append(cancelButton, saveButton);
+
+  modal.prepend(title);
+  modal.append(notesField, actions);
+  overlay.append(modal);
+  document.body.append(overlay);
+  document.body.classList.add("has-app-modal");
+
+  const close = () => {
+    overlay.remove();
+    document.body.classList.remove("has-app-modal");
+  };
+
+  cancelButton.addEventListener("click", close);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) close();
+  });
+
+  modal.addEventListener("submit", (event) => {
+    event.preventDefault();
+    day[mealKey].entry = normalizeMealEntry({
+      title: notesInput.value,
+      components: {
+        protein: inputs.protein.value,
+        carbs: inputs.carbs.value,
+        veggies: inputs.veggies.value
+      },
+      recipeId: currentEntry.recipeId || ""
+    });
+    updateInputs(dateId, { lunch: day.lunch.entry, dinner: day.dinner.entry });
+    scheduleSave(dateId, true);
+    close();
+  });
+
+  inputs.protein.focus();
+}
+
+function planRecipeForDate({ recipeTitle, recipeComponents, recipeId = "", dateValue, meal }) {
   const safeDateValue = dateValue || formatDateId(new Date());
   const date = new Date(`${safeDateValue}T00:00:00`);
   if (Number.isNaN(date.getTime())) return;
@@ -1781,11 +2003,21 @@ function planRecipeForDate({ recipeTitle, dateValue, meal }) {
   const dateId = formatDateId(date);
   const elements = state.dayElements.get(dateId);
   if (!elements) return;
-  const targetInput = meal === "dinner" ? elements.dinnerInput : elements.lunchInput;
-  const currentValue = targetInput.value.trim();
-  const nextValue = currentValue ? `${currentValue} + ${recipeTitle}` : recipeTitle;
-  targetInput.value = nextValue;
-  updateDayState(dateId, elements.lunchInput.value, elements.dinnerInput.value);
+
+  const mealKey = meal === "dinner" ? "dinner" : "lunch";
+  const nextEntry = normalizeMealEntry({
+    title: recipeTitle,
+    components: normalizeMealComponents(recipeComponents),
+    recipeId
+  });
+
+  if (!hasMealEntryContent(nextEntry)) {
+    nextEntry.title = recipeTitle.trim();
+  }
+
+  elements[mealKey].entry = nextEntry;
+  updateDayState(dateId);
+  updateInputs(dateId, { lunch: elements.lunch.entry, dinner: elements.dinner.entry });
   scheduleSave(dateId, true);
   elements.card.scrollIntoView({ behavior: "smooth", block: "center" });
   showCalendarNotice(`Receta añadida a ${formatDayName(date)}.`);
@@ -1884,6 +2116,7 @@ function addRecipeItem(recipe, options = {}) {
   const { shouldPersist = true } = options;
   const recipeIngredients = normalizeRecipeIngredients(recipe.ingredients);
   const recipeCategoryId = normalizeRecipeCategoryId(recipe.categoryId);
+  const recipeComponents = normalizeRecipeComponents(recipe.components);
   const visualRecipeCategoryId = getResolvedRecipeCategoryId({
     categoryId: recipeCategoryId,
     ingredients: recipeIngredients
@@ -1893,6 +2126,9 @@ function addRecipeItem(recipe, options = {}) {
   item.dataset.recipeId = recipe.id;
   item.dataset.recipeTitle = normalizeText(recipe.title);
   item.dataset.recipeCategory = recipeCategoryId;
+  item.dataset.recipeProtein = recipeComponents.protein;
+  item.dataset.recipeCarbs = recipeComponents.carbs;
+  item.dataset.recipeVeggies = recipeComponents.veggies;
   item.dataset.category = visualRecipeCategoryId;
 
   const card = document.createElement("button");
@@ -1923,7 +2159,11 @@ function addRecipeItem(recipe, options = {}) {
   cardTitle.className = "recipe-card__title recipe-title";
   cardTitle.textContent = recipe.title;
 
-  card.append(cardMedia, cardTitle);
+  const cardComponents = document.createElement("span");
+  cardComponents.className = "recipe-card__components";
+  cardComponents.textContent = getMealSummary({ title: "", components: recipeComponents }) || "Sin P/H/V";
+
+  card.append(cardMedia, cardTitle, cardComponents);
 
   const ingredientsWrapper = document.createElement("div");
   ingredientsWrapper.className = "recipe-ingredients";
@@ -2019,6 +2259,41 @@ function addRecipeItem(recipe, options = {}) {
   });
   categoryField.append(categoryLabel, categorySelect);
 
+  const componentsFieldset = document.createElement("div");
+  componentsFieldset.className = "recipe-components-editor";
+
+  const buildComponentField = (labelText, key, placeholder) => {
+    const field = document.createElement("label");
+    field.className = "recipe-field";
+    const label = document.createElement("span");
+    label.textContent = labelText;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = placeholder;
+    input.value = recipeComponents[key];
+    input.addEventListener("input", () => {
+      item.dataset[`recipe${key.charAt(0).toUpperCase()}${key.slice(1)}`] = input.value.trim();
+      const nextSummary = getMealSummary({
+        title: "",
+        components: {
+          protein: item.dataset.recipeProtein || "",
+          carbs: item.dataset.recipeCarbs || "",
+          veggies: item.dataset.recipeVeggies || ""
+        }
+      });
+      cardComponents.textContent = nextSummary || "Sin P/H/V";
+      persistRecipes();
+    });
+    field.append(label, input);
+    return field;
+  };
+
+  componentsFieldset.append(
+    buildComponentField("Proteína (P)", "protein", "Ej: pollo plancha"),
+    buildComponentField("Hidratos (H)", "carbs", "Ej: arroz"),
+    buildComponentField("Verduras (V)", "veggies", "Ej: calabacín")
+  );
+
   const dateField = document.createElement("label");
   dateField.className = "recipe-field";
   const dateLabel = document.createElement("span");
@@ -2046,6 +2321,12 @@ function addRecipeItem(recipe, options = {}) {
   addButton.addEventListener("click", () => {
     planRecipeForDate({
       recipeTitle: recipe.title,
+      recipeComponents: {
+        protein: item.dataset.recipeProtein || "",
+        carbs: item.dataset.recipeCarbs || "",
+        veggies: item.dataset.recipeVeggies || ""
+      },
+      recipeId: item.dataset.recipeId,
       dateValue: dateInput.value,
       meal: mealSelect.value
     });
@@ -2065,7 +2346,7 @@ function addRecipeItem(recipe, options = {}) {
     closeRecipeModal(item);
   });
 
-  actions.append(categoryField, dateField, mealField, addButton, deleteButton);
+  actions.append(categoryField, componentsFieldset, dateField, mealField, addButton, deleteButton);
 
   const modal = document.createElement("div");
   modal.className = "recipe-modal";
@@ -2213,11 +2494,19 @@ function initRecipesList() {
     if (!value) return;
     const ingredients = getRecipeIngredientsFromList(recipeIngredientsList);
     const categoryId = normalizeRecipeCategoryId(currentRecipeCategoryInput?.value || "");
-    addRecipeItem({ id: generateRecipeId(), title: value, categoryId, ingredients });
+    const components = normalizeRecipeComponents({
+      protein: recipeProteinInput?.value || "",
+      carbs: recipeCarbsInput?.value || "",
+      veggies: recipeVeggiesInput?.value || ""
+    });
+    addRecipeItem({ id: generateRecipeId(), title: value, categoryId, components, ingredients });
     recipesInput.value = "";
     if (currentRecipeCategoryInput) {
       currentRecipeCategoryInput.value = "";
     }
+    if (recipeProteinInput) recipeProteinInput.value = "";
+    if (recipeCarbsInput) recipeCarbsInput.value = "";
+    if (recipeVeggiesInput) recipeVeggiesInput.value = "";
     recipesInput.focus();
     clearRecipeIngredientsDraft();
   });
@@ -2323,17 +2612,11 @@ function initThemeToggle() {
   });
 }
 
-function updateDayState(dateId, lunchValue, dinnerValue) {
+function updateDayState(dateId) {
   const elements = state.dayElements.get(dateId);
   if (!elements) return;
-  const lunchFilled = Boolean(lunchValue.trim());
-  const dinnerFilled = Boolean(dinnerValue.trim());
-
-  elements.lunchStatus.classList.toggle("is-filled", lunchFilled);
-  elements.lunchStatus.classList.toggle("is-empty", !lunchFilled);
-  elements.dinnerStatus.classList.toggle("is-filled", dinnerFilled);
-  elements.dinnerStatus.classList.toggle("is-empty", !dinnerFilled);
-
+  const lunchFilled = hasMealEntryContent(elements.lunch.entry);
+  const dinnerFilled = hasMealEntryContent(elements.dinner.entry);
   elements.card.classList.toggle("is-empty", !lunchFilled && !dinnerFilled);
   updateEmptyDaysCount();
 }
@@ -2341,8 +2624,7 @@ function updateDayState(dateId, lunchValue, dinnerValue) {
 function updateEmptyDaysCount() {
   if (!emptyDaysPill) return;
   const emptyCount = Array.from(state.dayElements.values()).filter(
-    (elements) =>
-      !elements.lunchInput.value.trim() && !elements.dinnerInput.value.trim()
+    (elements) => !hasMealEntryContent(elements.lunch.entry) && !hasMealEntryContent(elements.dinner.entry)
   ).length;
   if (emptyCount === 0) {
     emptyDaysPill.textContent = "Todo completo";
@@ -2379,16 +2661,15 @@ function showCalendarNotice(message) {
 function jumpToNextEmptyDay() {
   const emptyEntry = Array.from(state.dayElements.entries()).find(
     ([, elements]) =>
-      !elements.lunchInput.value.trim() && !elements.dinnerInput.value.trim()
+      !hasMealEntryContent(elements.lunch.entry) && !hasMealEntryContent(elements.dinner.entry)
   );
   if (!emptyEntry) {
     showCalendarNotice("No quedan huecos en estas dos semanas.");
     return;
   }
-  const [, elements] = emptyEntry;
-  const card = elements.card;
-  card.scrollIntoView({ behavior: "smooth", block: "center" });
-  elements.lunchInput.focus();
+  const [dateId, elements] = emptyEntry;
+  elements.card.scrollIntoView({ behavior: "smooth", block: "center" });
+  openMealEntryEditor({ dateId, meal: "lunch", dateLabel: elements.card.querySelector('h3')?.textContent || "" });
   showCalendarNotice("Primer día vacío listo para editar.");
 }
 
