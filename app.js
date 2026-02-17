@@ -349,11 +349,12 @@ function normalizeMealComponents(components) {
 
 function getMealSummary(mealEntry) {
   const entry = normalizeMealEntry(mealEntry);
+  if (entry.title) return entry.title;
   const componentValues = [entry.components.protein, entry.components.carbs, entry.components.veggies]
     .map((value) => value.trim())
     .filter(Boolean);
   if (componentValues.length) return componentValues.join(" + ");
-  return entry.title;
+  return "";
 }
 
 function normalizeMealEntry(mealEntry) {
