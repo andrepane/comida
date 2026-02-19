@@ -473,6 +473,32 @@ button:focus-visible {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
+
+.calendar-controls__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.quick-capture,
+.planner-tools {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.quick-capture .field,
+.planner-tools .field {
+  flex: 1;
+  min-width: 220px;
+}
+
+.day-card.is-hidden-by-focus {
+  display: none;
+}
+
 .day-card {
   background: var(--card);
   border-radius: var(--radius-md);
@@ -580,6 +606,16 @@ body[data-theme="dark"] .day-card.is-empty {
   padding: 8px;
   width: 100%;
   text-align: left;
+}
+
+
+.meal-row.is-dragging {
+  opacity: 0.55;
+}
+
+.meal-row.is-drop-target {
+  outline: 2px dashed var(--primary);
+  outline-offset: 1px;
 }
 
 .meal-row__content {

@@ -31,6 +31,11 @@ const calendarGrid = document.getElementById("calendarGrid");
 const prevWeekBtn = document.getElementById("prevWeek");
 const nextWeekBtn = document.getElementById("nextWeek");
 const todayBtn = document.getElementById("today");
+const todayFocusBtn = document.getElementById("todayFocus");
+const quickCaptureForm = document.getElementById("quickCaptureForm");
+const quickCaptureInput = document.getElementById("quickCaptureInput");
+const weekTemplateSelect = document.getElementById("weekTemplateSelect");
+const applyWeekTemplateBtn = document.getElementById("applyWeekTemplate");
 const syncStatus = document.getElementById("syncStatus");
 const rangeTitle = document.getElementById("rangeTitle");
 const rangeSubtitle = document.getElementById("rangeSubtitle");
@@ -66,6 +71,7 @@ const menuClose = document.getElementById("menuClose");
 const menuBackdrop = document.getElementById("menuBackdrop");
 const clearCheckedBtn = document.getElementById("clearChecked");
 const collapseAllBtn = document.getElementById("collapseAllCategories");
+const generateShoppingFromPlanBtn = document.getElementById("generateShoppingFromPlan");
 
 const SHARED_CALENDAR_ID = "calendario-compartido";
 const SHOPPING_CATEGORIES = [
@@ -155,7 +161,51 @@ const state = {
   inFlight: 0,
   lastError: null,
   remoteNoticeTimer: null,
-  seenDays: new Set()
+  seenDays: new Set(),
+  isTodayFocusEnabled: false
+};
+
+
+const WEEKDAY_ALIASES = {
+  lunes: 0,
+  martes: 1,
+  miercoles: 2,
+  miércoles: 2,
+  jueves: 3,
+  viernes: 4,
+  sabado: 5,
+  sábado: 5,
+  domingo: 6
+};
+
+const WEEK_TEMPLATES = {
+  rapida: [
+    { lunch: "Ensalada de pollo", dinner: "Tortilla francesa + tomate" },
+    { lunch: "Wrap integral de atún", dinner: "Salteado de verduras + arroz" },
+    { lunch: "Pasta con pesto", dinner: "Salmón plancha + brócoli" },
+    { lunch: "Bowl de garbanzos", dinner: "Crema de calabacín + huevo" },
+    { lunch: "Arroz tres delicias", dinner: "Quesadillas de pollo" },
+    { lunch: "Lentejas rápidas", dinner: "Pizza casera exprés" },
+    { lunch: "Hamburguesa casera", dinner: "Ensalada completa" }
+  ],
+  equilibrada: [
+    { lunch: "Pollo al horno + quinoa", dinner: "Merluza + verduras" },
+    { lunch: "Lentejas estofadas", dinner: "Crema de verduras + tostadas" },
+    { lunch: "Pasta integral boloñesa", dinner: "Tacos de pavo" },
+    { lunch: "Arroz con verduras", dinner: "Tortilla de patata + ensalada" },
+    { lunch: "Salmón + boniato", dinner: "Wok de tofu + arroz" },
+    { lunch: "Garbanzos con espinacas", dinner: "Pechuga + puré" },
+    { lunch: "Paella de verduras", dinner: "Wrap de hummus" }
+  ],
+  batch: [
+    { lunch: "Pollo desmechado + arroz", dinner: "Crema de verduras" },
+    { lunch: "Guiso de ternera", dinner: "Tacos del batch" },
+    { lunch: "Pasta boloñesa batch", dinner: "Ensalada de legumbres" },
+    { lunch: "Chili con arroz", dinner: "Tortilla + verduras asadas" },
+    { lunch: "Curry de garbanzos", dinner: "Sopa rápida + tostadas" },
+    { lunch: "Albóndigas + couscous", dinner: "Wrap de sobras" },
+    { lunch: "Arroz al horno", dinner: "Cena libre" }
+  ]
 };
 
 const EMPTY_MEAL_COMPONENTS = {
@@ -339,6 +389,101 @@ function formatDayName(date) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+function getDateFromId(dateId) {
+  const [year, month, day] = dateId.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toggleTodayFocus() {
+  state.isTodayFocusEnabled = !state.isTodayFocusEnabled;
+  if (todayFocusBtn) {
+    todayFocusBtn.classList.toggle("is-active", state.isTodayFocusEnabled);
+    todayFocusBtn.setAttribute("aria-pressed", String(state.isTodayFocusEnabled));
+  }
+  const todayId = formatDateId(new Date());
+  state.dayElements.forEach((elements, dateId) => {
+    elements.card.classList.toggle("is-hidden-by-focus", state.isTodayFocusEnabled && dateId !== todayId);
+  });
+  if (state.isTodayFocusEnabled && state.dayElements.has(todayId)) {
+    state.dayElements.get(todayId).card.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function parseQuickCapture(value) {
+  const normalizedValue = value.trim();
+  if (!normalizedValue) return null;
+  const normalized = normalizeText(normalizedValue);
+  const pattern = /(hoy|manana|mañana|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo)\s+(comida|cena)\s+(.+)/i;
+  const match = normalized.match(pattern);
+  if (!match) return null;
+  const [, dayToken, mealToken, dish] = match;
+  const meal = mealToken.includes("cena") ? "dinner" : "lunch";
+
+  let targetDate = new Date();
+  targetDate.setHours(0, 0, 0, 0);
+  if (dayToken === "manana" || dayToken === "mañana") {
+    targetDate.setDate(targetDate.getDate() + 1);
+  } else if (dayToken !== "hoy") {
+    const targetWeekday = WEEKDAY_ALIASES[dayToken];
+    if (typeof targetWeekday === "number") {
+      const currentWeekday = (targetDate.getDay() + 6) % 7;
+      let offset = targetWeekday - currentWeekday;
+      if (offset < 0) offset += 7;
+      targetDate.setDate(targetDate.getDate() + offset);
+    }
+  }
+
+  return {
+    dateValue: formatDateId(targetDate),
+    meal,
+    title: dish.trim()
+  };
+}
+
+function applyWeekTemplate(templateId) {
+  const template = WEEK_TEMPLATES[templateId];
+  if (!template) return;
+
+  for (let i = 0; i < 14; i += 1) {
+    const date = new Date(state.currentMonday);
+    date.setDate(date.getDate() + i);
+    const dateId = formatDateId(date);
+    const dayTemplate = template[i % 7];
+    const elements = state.dayElements.get(dateId);
+    if (!elements || !dayTemplate) continue;
+    elements.lunch.entry = normalizeMealEntry({ title: dayTemplate.lunch, components: EMPTY_MEAL_COMPONENTS });
+    elements.dinner.entry = normalizeMealEntry({ title: dayTemplate.dinner, components: EMPTY_MEAL_COMPONENTS });
+    updateInputs(dateId, { lunch: elements.lunch.entry, dinner: elements.dinner.entry });
+    scheduleSave(dateId);
+  }
+  showCalendarNotice("Plantilla aplicada a comida y cena de las próximas dos semanas.");
+}
+
+function handleMealDrop(event, targetDateId, targetMeal) {
+  event.preventDefault();
+  const payload = event.dataTransfer?.getData("text/plain");
+  if (!payload) return;
+  const [sourceDateId, sourceMeal] = payload.split("|");
+  if (!sourceDateId || !sourceMeal) return;
+  if (sourceDateId === targetDateId && sourceMeal === targetMeal) return;
+
+  const sourceDay = state.dayElements.get(sourceDateId);
+  const targetDay = state.dayElements.get(targetDateId);
+  if (!sourceDay || !targetDay) return;
+
+  const sourceEntry = normalizeMealEntry(sourceDay[sourceMeal]?.entry);
+  const targetEntry = normalizeMealEntry(targetDay[targetMeal]?.entry);
+
+  sourceDay[sourceMeal].entry = targetEntry;
+  targetDay[targetMeal].entry = sourceEntry;
+
+  updateInputs(sourceDateId, { lunch: sourceDay.lunch.entry, dinner: sourceDay.dinner.entry });
+  updateInputs(targetDateId, { lunch: targetDay.lunch.entry, dinner: targetDay.dinner.entry });
+  scheduleSave(sourceDateId, true);
+  scheduleSave(targetDateId, true);
+  showCalendarNotice("Comidas reorganizadas.");
+}
+
 function normalizeMealComponents(components) {
   return {
     protein: components?.protein?.trim?.() ?? "",
@@ -473,6 +618,9 @@ function buildCalendar() {
       const row = document.createElement("button");
       row.type = "button";
       row.className = "meal-row";
+      row.draggable = true;
+      row.dataset.dateId = dateId;
+      row.dataset.mealId = mealId;
       row.setAttribute("aria-label", `Editar ${label.toLowerCase()} de ${formatDayName(date)}`);
 
       const status = document.createElement("span");
@@ -505,6 +653,25 @@ function buildCalendar() {
       row.addEventListener("click", () => {
         openMealEntryEditor({ dateId, meal: mealId, dateLabel: formatDayName(date) });
       });
+      row.addEventListener("dragstart", (event) => {
+        event.dataTransfer?.setData("text/plain", `${dateId}|${mealId}`);
+        event.dataTransfer.effectAllowed = "move";
+        row.classList.add("is-dragging");
+      });
+      row.addEventListener("dragend", () => {
+        row.classList.remove("is-dragging");
+      });
+      row.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        row.classList.add("is-drop-target");
+      });
+      row.addEventListener("dragleave", () => {
+        row.classList.remove("is-drop-target");
+      });
+      row.addEventListener("drop", (event) => {
+        row.classList.remove("is-drop-target");
+        handleMealDrop(event, dateId, mealId);
+      });
       return { row, status, summary, chips };
     };
 
@@ -535,6 +702,12 @@ function buildCalendar() {
 
   updateRangeLabels();
   updateEmptyDaysCount();
+  if (state.isTodayFocusEnabled) {
+    const todayId = formatDateId(new Date());
+    state.dayElements.forEach((elements, dateId) => {
+      elements.card.classList.toggle("is-hidden-by-focus", dateId !== todayId);
+    });
+  }
   if (state.userId) {
     attachListeners();
   }
@@ -1832,6 +2005,52 @@ function findShoppingItemByLabel(value) {
   });
 }
 
+function generateShoppingFromCurrentPlan() {
+  const aggregate = new Map();
+  const appendValue = (value) => {
+    const trimmed = value?.trim?.() || "";
+    if (!trimmed) return;
+    const normalized = normalizeText(trimmed);
+    if (!normalized) return;
+    const current = aggregate.get(normalized) || { label: trimmed, quantity: 0 };
+    current.quantity += 1;
+    aggregate.set(normalized, current);
+  };
+
+  state.dayElements.forEach((elements) => {
+    [elements.lunch.entry, elements.dinner.entry].forEach((entry) => {
+      const normalizedEntry = normalizeMealEntry(entry);
+      appendValue(normalizedEntry.components.protein);
+      appendValue(normalizedEntry.components.carbs);
+      appendValue(normalizedEntry.components.veggies);
+    });
+  });
+
+  if (!aggregate.size) {
+    showCalendarNotice("No hay ingredientes P/H/V para generar compra.");
+    return;
+  }
+
+  let added = 0;
+  let skipped = 0;
+  aggregate.forEach((item) => {
+    const existingItem = findShoppingItemByLabel(item.label);
+    if (existingItem) {
+      skipped += 1;
+      return;
+    }
+    addShoppingItem(item.label, {
+      quantity: item.quantity,
+      shouldTrackSuggestions: false
+    });
+    added += 1;
+  });
+
+  const summary = `Lista generada: ${added} ingredientes añadidos${skipped ? `, ${skipped} ya existentes` : ""}.`;
+  showCalendarNotice(summary);
+  setActiveView("shoppingView");
+}
+
 function updateRecipesEmptyState() {
   if (!recipesEmpty || !recipesList) return;
   const totalItems = recipesList.querySelectorAll(".recipe-item").length;
@@ -2728,6 +2947,39 @@ document.addEventListener("keydown", (event) => {
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
 todayBtn.addEventListener("click", jumpToToday);
+if (todayFocusBtn) {
+  todayFocusBtn.addEventListener("click", toggleTodayFocus);
+}
+if (quickCaptureForm && quickCaptureInput) {
+  quickCaptureForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const parsed = parseQuickCapture(quickCaptureInput.value);
+    if (!parsed) {
+      showCalendarNotice("Formato rápido: 'jueves cena tacos'.");
+      return;
+    }
+    planRecipeForDate({
+      recipeTitle: parsed.title,
+      recipeComponents: EMPTY_MEAL_COMPONENTS,
+      dateValue: parsed.dateValue,
+      meal: parsed.meal
+    });
+    quickCaptureInput.value = "";
+    quickCaptureInput.focus();
+  });
+}
+if (applyWeekTemplateBtn && weekTemplateSelect) {
+  applyWeekTemplateBtn.addEventListener("click", () => {
+    if (!weekTemplateSelect.value) {
+      showCalendarNotice("Selecciona primero una plantilla.");
+      return;
+    }
+    applyWeekTemplate(weekTemplateSelect.value);
+  });
+}
+if (generateShoppingFromPlanBtn) {
+  generateShoppingFromPlanBtn.addEventListener("click", generateShoppingFromCurrentPlan);
+}
 if (menuToggle) {
   menuToggle.addEventListener("click", openMenu);
 }

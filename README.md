@@ -3,6 +3,9 @@
 Aplicación web simple para planificar **comida** y **cena** en 14 días (semana actual + siguiente) con sincronización en tiempo real usando Firebase Auth anónima y Cloud Firestore en un único calendario compartido.
 
 ## Mejoras recientes
+- Planificación semanal mejorada con plantillas de comida/cena, vista enfocada en hoy y arrastrar/soltar para reorganizar platos.
+- Captura rápida en lenguaje natural (ejemplo: `jueves cena tacos`) para apuntar comidas en segundos.
+- Generación de compra desde el menú planificado (ingredientes P/H/V), agrupada por categorías existentes.
 - La lista de la compra ahora se guarda en `localStorage`, manteniendo categorías y elementos comprados entre sesiones.
 - El tema inicial respeta `prefers-color-scheme` cuando no hay una preferencia guardada.
 

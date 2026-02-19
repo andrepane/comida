@@ -87,7 +87,35 @@
                 <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
               </button>
             </div>
-            <button class="btn minimal small" id="today" type="button">Hoy</button>
+            <div class="calendar-controls__actions">
+              <button class="btn minimal small" id="today" type="button">Hoy</button>
+              <button class="btn ghost small" id="todayFocus" type="button">Vista hoy</button>
+            </div>
+          </div>
+
+          <form class="quick-capture" id="quickCaptureForm">
+            <label class="field" for="quickCaptureInput">
+              <span>Captura rápida</span>
+              <input
+                id="quickCaptureInput"
+                type="text"
+                placeholder="Ej: jueves cena tacos, lunes comida lentejas"
+              />
+            </label>
+            <button class="btn secondary small" type="submit">Añadir</button>
+          </form>
+
+          <div class="planner-tools">
+            <label class="field" for="weekTemplateSelect">
+              <span>Plantillas de semana</span>
+              <select id="weekTemplateSelect">
+                <option value="">Selecciona plantilla…</option>
+                <option value="rapida">Semana rápida (15-20 min)</option>
+                <option value="equilibrada">Semana equilibrada</option>
+                <option value="batch">Batch cooking</option>
+              </select>
+            </label>
+            <button class="btn ghost small" id="applyWeekTemplate" type="button">Aplicar plantilla</button>
           </div>
 
           <div class="calendar-grid" id="calendarGrid" aria-live="polite"></div>
@@ -101,6 +129,7 @@
               <h2 id="shoppingTitle">Compra</h2>
             </div>
             <div class="shopping-actions">
+              <button class="btn ghost small" id="generateShoppingFromPlan" type="button">Generar desde menú</button>
               <button class="btn ghost small" id="collapseAllCategories" type="button">Colapsar todo</button>
               <button class="btn ghost small" id="clearChecked" type="button">Vaciar comprados</button>
             </div>
