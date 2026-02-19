@@ -31,6 +31,7 @@ const calendarGrid = document.getElementById("calendarGrid");
 const prevWeekBtn = document.getElementById("prevWeek");
 const nextWeekBtn = document.getElementById("nextWeek");
 const todayBtn = document.getElementById("today");
+const calendarViewButtons = document.querySelectorAll(".calendar-view-btn");
 const syncStatus = document.getElementById("syncStatus");
 const rangeTitle = document.getElementById("rangeTitle");
 const rangeSubtitle = document.getElementById("rangeSubtitle");
@@ -125,12 +126,21 @@ const rangeFormatter = new Intl.DateTimeFormat("es-ES", {
 
 const DUPLICATE_INGREDIENT_CHOICE_KEY = "duplicateIngredientsChoice";
 const ACTIVE_VIEW_STORAGE_KEY = "activeView";
+const CALENDAR_VIEW_STORAGE_KEY = "calendarViewMode";
 const VALID_APP_VIEWS = ["calendarView", "shoppingView", "recipesView"];
 const DEFAULT_ACTIVE_VIEW = VALID_APP_VIEWS[0];
+const CALENDAR_VIEW_CONFIG = {
+  day: { days: 1, step: 1, name: "día" },
+  week: { days: 7, step: 7, name: "semana" },
+  twoWeeks: { days: 14, step: 7, name: "2 semanas" }
+};
+const VALID_CALENDAR_VIEWS = Object.keys(CALENDAR_VIEW_CONFIG);
 
 const state = {
   calendarId: SHARED_CALENDAR_ID,
   currentMonday: getMonday(new Date()),
+  currentDate: new Date(),
+  calendarView: loadStoredCalendarView(),
   userId: null,
   unsubscribes: new Map(),
   timers: new Map(),
@@ -157,6 +167,34 @@ const state = {
   remoteNoticeTimer: null,
   seenDays: new Set()
 };
+
+const dragState = {
+  sourceDateId: null,
+  sourceMeal: null,
+  dragging: false
+};
+
+function isValidCalendarView(view) {
+  return VALID_CALENDAR_VIEWS.includes(view);
+}
+
+function loadStoredCalendarView() {
+  try {
+    const storedView = localStorage.getItem(CALENDAR_VIEW_STORAGE_KEY);
+    return isValidCalendarView(storedView) ? storedView : "twoWeeks";
+  } catch {
+    return "twoWeeks";
+  }
+}
+
+function persistCalendarView(view) {
+  if (!isValidCalendarView(view)) return;
+  try {
+    localStorage.setItem(CALENDAR_VIEW_STORAGE_KEY, view);
+  } catch {
+    // Ignore localStorage errors and keep current mode in-memory.
+  }
+}
 
 const EMPTY_MEAL_COMPONENTS = {
   protein: "",
@@ -439,9 +477,13 @@ function buildCalendar() {
   calendarGrid.innerHTML = "";
   state.dayElements.clear();
 
-  for (let i = 0; i < 14; i += 1) {
-    const date = new Date(state.currentMonday);
-    date.setDate(state.currentMonday.getDate() + i);
+  const viewConfig = CALENDAR_VIEW_CONFIG[state.calendarView] || CALENDAR_VIEW_CONFIG.twoWeeks;
+  const startDate = getCalendarStartDate();
+  calendarGrid.style.setProperty("--calendar-columns", String(Math.min(viewConfig.days, 7)));
+
+  for (let i = 0; i < viewConfig.days; i += 1) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
 
     const dateId = formatDateId(date);
     const card = document.createElement("article");
@@ -502,7 +544,15 @@ function buildCalendar() {
 
       content.append(summary, chips);
       row.append(status, content);
+      row.draggable = true;
+      row.dataset.dateId = dateId;
+      row.dataset.meal = mealId;
+      row.addEventListener("dragstart", handleMealDragStart);
+      row.addEventListener("dragover", handleMealDragOver);
+      row.addEventListener("drop", handleMealDrop);
+      row.addEventListener("dragend", handleMealDragEnd);
       row.addEventListener("click", () => {
+        if (dragState.dragging) return;
         openMealEntryEditor({ dateId, meal: mealId, dateLabel: formatDayName(date) });
       });
       return { row, status, summary, chips };
@@ -541,10 +591,22 @@ function buildCalendar() {
 }
 
 function updateRangeLabels() {
-  const endDate = new Date(state.currentMonday);
-  endDate.setDate(state.currentMonday.getDate() + 13);
-  rangeTitle.textContent = `Desde ${rangeFormatter.format(state.currentMonday)}`;
-  rangeSubtitle.textContent = `Hasta ${rangeFormatter.format(endDate)}`;
+  const viewConfig = CALENDAR_VIEW_CONFIG[state.calendarView] || CALENDAR_VIEW_CONFIG.twoWeeks;
+  const startDate = getCalendarStartDate();
+  calendarGrid.style.setProperty("--calendar-columns", String(Math.min(viewConfig.days, 7)));
+  const endDate = new Date(startDate);
+  endDate.setDate(startDate.getDate() + viewConfig.days - 1);
+
+  if (viewConfig.days === 1) {
+    rangeTitle.textContent = rangeFormatter.format(startDate);
+    rangeSubtitle.textContent = "Vista día";
+  } else {
+    rangeTitle.textContent = `Desde ${rangeFormatter.format(startDate)}`;
+    rangeSubtitle.textContent = `Hasta ${rangeFormatter.format(endDate)}`;
+  }
+
+  prevWeekBtn.setAttribute("aria-label", `${viewConfig.name} anterior`);
+  nextWeekBtn.setAttribute("aria-label", `${viewConfig.name} siguiente`);
 }
 
 function attachListeners() {
@@ -680,20 +742,54 @@ async function saveDay(dateId) {
 }
 
 function changeWeek(offset) {
-  const newDate = new Date(state.currentMonday);
-  newDate.setDate(state.currentMonday.getDate() + offset * 7);
-  state.currentMonday = getMonday(newDate);
+  const viewConfig = CALENDAR_VIEW_CONFIG[state.calendarView] || CALENDAR_VIEW_CONFIG.twoWeeks;
+  const shiftDays = viewConfig.step * offset;
+  state.currentDate = addDays(state.currentDate, shiftDays);
+  state.currentMonday = getMonday(state.currentDate);
   buildCalendar();
 }
 
 function jumpToToday() {
-  state.currentMonday = getMonday(new Date());
+  state.currentDate = new Date();
+  state.currentMonday = getMonday(state.currentDate);
+  buildCalendar();
+}
+
+function getCalendarStartDate() {
+  if (state.calendarView === "day") {
+    return startOfDay(state.currentDate);
+  }
+  return getMonday(state.currentDate);
+}
+
+function startOfDay(date) {
+  const nextDate = new Date(date);
+  nextDate.setHours(0, 0, 0, 0);
+  return nextDate;
+}
+
+function addDays(date, days) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+}
+
+function setCalendarView(view) {
+  if (!isValidCalendarView(view)) return;
+  state.calendarView = view;
+  persistCalendarView(view);
+  calendarViewButtons.forEach((button) => {
+    const isActive = button.dataset.calendarView === view;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
   buildCalendar();
 }
 
 function initCalendar() {
   resetTimers();
-  buildCalendar();
+  state.currentMonday = getMonday(state.currentDate);
+  setCalendarView(state.calendarView);
   updateStatus();
 }
 
@@ -1860,9 +1956,10 @@ function applyRecipesFilter(rawQuery = recipesSearchInput?.value ?? "") {
 }
 
 function isDateInCurrentRange(date) {
-  const start = new Date(state.currentMonday);
-  const end = new Date(state.currentMonday);
-  end.setDate(end.getDate() + 13);
+  const start = getCalendarStartDate();
+  const viewConfig = CALENDAR_VIEW_CONFIG[state.calendarView] || CALENDAR_VIEW_CONFIG.twoWeeks;
+  const end = new Date(start);
+  end.setDate(end.getDate() + viewConfig.days - 1);
   start.setHours(0, 0, 0, 0);
   end.setHours(23, 59, 59, 999);
   return date >= start && date <= end;
@@ -1997,6 +2094,7 @@ function planRecipeForDate({ recipeTitle, recipeComponents, recipeId = "", dateV
   if (Number.isNaN(date.getTime())) return;
 
   if (!isDateInCurrentRange(date)) {
+    state.currentDate = date;
     state.currentMonday = getMonday(date);
     buildCalendar();
   }
@@ -2613,6 +2711,67 @@ function initThemeToggle() {
   });
 }
 
+
+function handleMealDragStart(event) {
+  const row = event.currentTarget;
+  dragState.sourceDateId = row.dataset.dateId || null;
+  dragState.sourceMeal = row.dataset.meal || null;
+  dragState.dragging = true;
+  row.classList.add("is-dragging");
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", `${dragState.sourceDateId}:${dragState.sourceMeal}`);
+}
+
+function handleMealDragOver(event) {
+  if (!dragState.dragging) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  event.currentTarget.classList.add("is-drag-over");
+}
+
+function handleMealDrop(event) {
+  event.preventDefault();
+  const targetRow = event.currentTarget;
+  targetRow.classList.remove("is-drag-over");
+
+  const targetDateId = targetRow.dataset.dateId;
+  const targetMeal = targetRow.dataset.meal;
+  const { sourceDateId, sourceMeal } = dragState;
+
+  if (!sourceDateId || !sourceMeal || !targetDateId || !targetMeal) return;
+  if (sourceDateId === targetDateId && sourceMeal === targetMeal) return;
+
+  const sourceDay = state.dayElements.get(sourceDateId);
+  const targetDay = state.dayElements.get(targetDateId);
+  if (!sourceDay || !targetDay) return;
+
+  const sourceEntry = normalizeMealEntry(sourceDay[sourceMeal].entry);
+  const targetEntry = normalizeMealEntry(targetDay[targetMeal].entry);
+
+  sourceDay[sourceMeal].entry = targetEntry;
+  targetDay[targetMeal].entry = sourceEntry;
+
+  updateInputs(sourceDateId, { lunch: sourceDay.lunch.entry, dinner: sourceDay.dinner.entry });
+  updateInputs(targetDateId, { lunch: targetDay.lunch.entry, dinner: targetDay.dinner.entry });
+
+  scheduleSave(sourceDateId, true);
+  scheduleSave(targetDateId, true);
+}
+
+function handleMealDragEnd(event) {
+  setTimeout(() => {
+    dragState.dragging = false;
+    dragState.sourceDateId = null;
+    dragState.sourceMeal = null;
+  }, 0);
+
+  const row = event.currentTarget;
+  row.classList.remove("is-dragging", "is-drag-over");
+  document.querySelectorAll(".meal-row.is-drag-over").forEach((element) => {
+    element.classList.remove("is-drag-over");
+  });
+}
+
 function updateDayState(dateId) {
   const elements = state.dayElements.get(dateId);
   if (!elements) return;
@@ -2665,7 +2824,7 @@ function jumpToNextEmptyDay() {
       !hasMealEntryContent(elements.lunch.entry) && !hasMealEntryContent(elements.dinner.entry)
   );
   if (!emptyEntry) {
-    showCalendarNotice("No quedan huecos en estas dos semanas.");
+    showCalendarNotice("No quedan huecos en la vista actual.");
     return;
   }
   const [dateId, elements] = emptyEntry;
@@ -2728,6 +2887,9 @@ document.addEventListener("keydown", (event) => {
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
 todayBtn.addEventListener("click", jumpToToday);
+calendarViewButtons.forEach((button) => {
+  button.addEventListener("click", () => setCalendarView(button.dataset.calendarView));
+});
 if (menuToggle) {
   menuToggle.addEventListener("click", openMenu);
 }

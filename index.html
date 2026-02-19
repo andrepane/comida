@@ -87,7 +87,14 @@
                 <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
               </button>
             </div>
-            <button class="btn minimal small" id="today" type="button">Hoy</button>
+            <div class="calendar-actions">
+              <div class="calendar-view-switch" role="group" aria-label="Vista del calendario">
+                <button class="btn ghost small calendar-view-btn" id="viewDay" type="button" data-calendar-view="day">Día</button>
+                <button class="btn ghost small calendar-view-btn" id="viewWeek" type="button" data-calendar-view="week">Semana</button>
+                <button class="btn ghost small calendar-view-btn is-active" id="viewTwoWeeks" type="button" data-calendar-view="twoWeeks">2 semanas</button>
+              </div>
+              <button class="btn minimal small" id="today" type="button">Hoy</button>
+            </div>
           </div>
 
           <div class="calendar-grid" id="calendarGrid" aria-live="polite"></div>
