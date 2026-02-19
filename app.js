@@ -31,6 +31,7 @@ const calendarGrid = document.getElementById("calendarGrid");
 const prevWeekBtn = document.getElementById("prevWeek");
 const nextWeekBtn = document.getElementById("nextWeek");
 const todayBtn = document.getElementById("today");
+const nextEmptyDayBtn = document.getElementById("nextEmptyDay");
 const syncStatus = document.getElementById("syncStatus");
 const rangeTitle = document.getElementById("rangeTitle");
 const rangeSubtitle = document.getElementById("rangeSubtitle");
@@ -66,6 +67,8 @@ const menuClose = document.getElementById("menuClose");
 const menuBackdrop = document.getElementById("menuBackdrop");
 const clearCheckedBtn = document.getElementById("clearChecked");
 const collapseAllBtn = document.getElementById("collapseAllCategories");
+const generateWeeklyShoppingBtn = document.getElementById("generateWeeklyShopping");
+const shoppingPlannerNotice = document.getElementById("shoppingPlannerNotice");
 
 const SHARED_CALENDAR_ID = "calendario-compartido";
 const SHOPPING_CATEGORIES = [
@@ -155,6 +158,7 @@ const state = {
   inFlight: 0,
   lastError: null,
   remoteNoticeTimer: null,
+  shoppingPlannerNoticeTimer: null,
   seenDays: new Set()
 };
 
@@ -1735,13 +1739,7 @@ function addShoppingItem(value, options = {}) {
 
   label.append(icon, name);
 
-  if (safeQuantity > 1) {
-    const quantityBadge = document.createElement("span");
-    quantityBadge.className = "shopping-item__quantity";
-    quantityBadge.textContent = `x${safeQuantity}`;
-    quantityBadge.setAttribute("aria-label", `Cantidad ${safeQuantity}`);
-    label.append(quantityBadge);
-  }
+  updateShoppingItemQuantityBadge(item);
 
   const categoryButton = document.createElement("label");
   categoryButton.className = "shopping-item__category";
@@ -1820,6 +1818,33 @@ function addShoppingItem(value, options = {}) {
   if (shouldPersist) {
     persistShoppingList();
   }
+}
+
+function updateShoppingItemQuantityBadge(item) {
+  if (!item) return;
+  const label = item.querySelector(".shopping-item__label");
+  if (!label) return;
+  const quantity = Math.max(1, Number(item.dataset.quantity) || 1);
+  const existingBadge = label.querySelector(".shopping-item__quantity");
+  if (quantity <= 1) {
+    if (existingBadge) existingBadge.remove();
+    return;
+  }
+  const badge = existingBadge || document.createElement("span");
+  badge.className = "shopping-item__quantity";
+  badge.textContent = `x${quantity}`;
+  badge.setAttribute("aria-label", `Cantidad ${quantity}`);
+  if (!existingBadge) {
+    label.append(badge);
+  }
+}
+
+function increaseShoppingItemQuantity(item, amount = 1) {
+  if (!item) return;
+  const safeAmount = Math.max(1, Number(amount) || 1);
+  const currentQuantity = Math.max(1, Number(item.dataset.quantity) || 1);
+  item.dataset.quantity = String(currentQuantity + safeAmount);
+  updateShoppingItemQuantityBadge(item);
 }
 
 function findShoppingItemByLabel(value) {
@@ -2083,6 +2108,96 @@ async function addRecipeIngredientsToShopping(ingredients) {
   if (addedAny) {
     persistShoppingList();
   }
+}
+
+function showShoppingPlannerNotice(message, tone = "info") {
+  if (!shoppingPlannerNotice) return;
+  shoppingPlannerNotice.textContent = message;
+  shoppingPlannerNotice.classList.remove("is-visible", "is-success", "is-warning");
+  shoppingPlannerNotice.classList.add("is-visible");
+  if (tone === "success") {
+    shoppingPlannerNotice.classList.add("is-success");
+  } else if (tone === "warning") {
+    shoppingPlannerNotice.classList.add("is-warning");
+  }
+  if (state.shoppingPlannerNoticeTimer) {
+    clearTimeout(state.shoppingPlannerNoticeTimer);
+  }
+  state.shoppingPlannerNoticeTimer = setTimeout(() => {
+    shoppingPlannerNotice.classList.remove("is-visible", "is-success", "is-warning");
+  }, 3600);
+}
+
+function getPlannedRecipeIngredients() {
+  const recipes = loadRecipes();
+  if (!recipes.length) return [];
+  const recipeById = new Map(recipes.map((recipe) => [recipe.id, recipe]));
+  const ingredients = [];
+
+  state.dayElements.forEach((day) => {
+    [day.lunch.entry, day.dinner.entry].forEach((entry) => {
+      const recipeId = normalizeMealEntry(entry).recipeId;
+      if (!recipeId) return;
+      const recipe = recipeById.get(recipeId);
+      if (!recipe) return;
+      normalizeRecipeIngredients(recipe.ingredients)
+        .filter((ingredient) => ingredient.includeInShopping !== false)
+        .forEach((ingredient) => {
+          ingredients.push({
+            label: ingredient.label,
+            categoryId: getRecipeIngredientCategoryId(ingredient.label, ingredient.categoryId)
+          });
+        });
+    });
+  });
+
+  return ingredients;
+}
+
+function generateWeeklyShoppingFromPlan() {
+  const plannedIngredients = getPlannedRecipeIngredients();
+  if (!plannedIngredients.length) {
+    showShoppingPlannerNotice("No hay recetas planificadas con ingredientes para esta quincena.", "warning");
+    return;
+  }
+
+  const aggregated = new Map();
+  plannedIngredients.forEach((ingredient) => {
+    const normalizedLabel = normalizeText(ingredient.label);
+    if (!normalizedLabel) return;
+    const existing = aggregated.get(normalizedLabel);
+    if (existing) {
+      existing.quantity += 1;
+      return;
+    }
+    aggregated.set(normalizedLabel, {
+      label: ingredient.label,
+      categoryId: ingredient.categoryId,
+      quantity: 1
+    });
+  });
+
+  let addedItems = 0;
+  let increasedItems = 0;
+  aggregated.forEach((ingredient) => {
+    const existingItem = findShoppingItemByLabel(ingredient.label);
+    if (existingItem) {
+      increaseShoppingItemQuantity(existingItem, ingredient.quantity);
+      increasedItems += 1;
+      return;
+    }
+    addShoppingItem(ingredient.label, {
+      quantity: ingredient.quantity,
+      categoryId: ingredient.categoryId,
+      shouldPersist: false,
+      shouldTrackSuggestions: false
+    });
+    addedItems += 1;
+  });
+
+  persistShoppingList();
+  const summary = `${addedItems} nuevos · ${increasedItems} actualizados`;
+  showShoppingPlannerNotice(`Compra generada desde recetas planificadas (${summary}).`, "success");
 }
 
 function closeRecipeModal(item) {
@@ -2458,6 +2573,9 @@ function initShoppingList() {
       collapseAllBtn.textContent = hasExpanded ? "Expandir todo" : "Colapsar todo";
     });
   }
+  if (generateWeeklyShoppingBtn) {
+    generateWeeklyShoppingBtn.addEventListener("click", generateWeeklyShoppingFromPlan);
+  }
   const storedItems = loadShoppingItems();
   if (storedItems.length) {
     replaceShoppingItems(storedItems, { shouldAnimateNew: false });
@@ -2728,6 +2846,9 @@ document.addEventListener("keydown", (event) => {
 prevWeekBtn.addEventListener("click", () => changeWeek(-1));
 nextWeekBtn.addEventListener("click", () => changeWeek(1));
 todayBtn.addEventListener("click", jumpToToday);
+if (nextEmptyDayBtn) {
+  nextEmptyDayBtn.addEventListener("click", jumpToNextEmptyDay);
+}
 if (menuToggle) {
   menuToggle.addEventListener("click", openMenu);
 }

@@ -87,7 +87,10 @@
                 <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
               </button>
             </div>
-            <button class="btn minimal small" id="today" type="button">Hoy</button>
+            <div class="calendar-quick-actions">
+              <button class="btn minimal small" id="today" type="button">Hoy</button>
+              <button class="btn ghost small" id="nextEmptyDay" type="button">Siguiente hueco</button>
+            </div>
           </div>
 
           <div class="calendar-grid" id="calendarGrid" aria-live="polite"></div>
@@ -101,10 +104,12 @@
               <h2 id="shoppingTitle">Compra</h2>
             </div>
             <div class="shopping-actions">
+              <button class="btn secondary small" id="generateWeeklyShopping" type="button">Generar desde plan</button>
               <button class="btn ghost small" id="collapseAllCategories" type="button">Colapsar todo</button>
               <button class="btn ghost small" id="clearChecked" type="button">Vaciar comprados</button>
             </div>
           </header>
+          <p class="shopping-planner-notice" id="shoppingPlannerNotice" aria-live="polite"></p>
           <form class="shopping-form" id="shoppingForm">
             <label class="field">
               <span>Nuevo elemento</span>
