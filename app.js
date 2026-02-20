@@ -127,6 +127,10 @@ const rangeFormatter = new Intl.DateTimeFormat("es-ES", {
 const DUPLICATE_INGREDIENT_CHOICE_KEY = "duplicateIngredientsChoice";
 const ACTIVE_VIEW_STORAGE_KEY = "activeView";
 const CALENDAR_VIEW_STORAGE_KEY = "calendarViewMode";
+const SHOPPING_SUGGESTIONS_MIN_COUNT = 2;
+const SHOPPING_SUGGESTIONS_RECENCY_WINDOW_DAYS = 14;
+const SHOPPING_SUGGESTIONS_RECENCY_MULTIPLIER = 0.3;
+const SHOPPING_SUGGESTIONS_FREQUENCY_MULTIPLIER = 0.7;
 const VALID_APP_VIEWS = ["calendarView", "shoppingView", "recipesView"];
 const DEFAULT_ACTIVE_VIEW = VALID_APP_VIEWS[0];
 const CALENDAR_VIEW_CONFIG = {
@@ -1243,9 +1247,35 @@ function serializeShoppingSuggestions(suggestions) {
   return JSON.stringify(list);
 }
 
+function getNormalizedShoppingLabelsInList() {
+  if (!shoppingList) return new Set();
+  return new Set(
+    Array.from(shoppingList.querySelectorAll(".shopping-item__name"))
+      .map((item) => normalizeText(item.textContent ?? ""))
+      .filter(Boolean)
+  );
+}
+
+function getSuggestionScore(suggestion) {
+  const count = Math.max(0, Number(suggestion?.count) || 0);
+  const lastAdded = Number(suggestion?.lastAdded) || 0;
+  const ageMs = Math.max(0, Date.now() - lastAdded);
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  const recencyDecay = Math.exp(-ageDays / SHOPPING_SUGGESTIONS_RECENCY_WINDOW_DAYS);
+  return count * SHOPPING_SUGGESTIONS_FREQUENCY_MULTIPLIER + recencyDecay * SHOPPING_SUGGESTIONS_RECENCY_MULTIPLIER;
+}
+
 function getShoppingSuggestions() {
+  const itemsInList = getNormalizedShoppingLabelsInList();
   return Array.from(state.shoppingSuggestions.values())
+    .filter((suggestion) => {
+      const normalizedLabel = normalizeText(suggestion?.label ?? "");
+      if (!normalizedLabel || itemsInList.has(normalizedLabel)) return false;
+      return (Number(suggestion?.count) || 0) >= SHOPPING_SUGGESTIONS_MIN_COUNT;
+    })
     .sort((a, b) => {
+      const scoreDiff = getSuggestionScore(b) - getSuggestionScore(a);
+      if (scoreDiff !== 0) return scoreDiff;
       if (b.count !== a.count) return b.count - a.count;
       return b.lastAdded - a.lastAdded;
     })
@@ -1293,11 +1323,14 @@ function renderShoppingSuggestions() {
   });
 }
 
-function recordShoppingSuggestion(label) {
+function recordShoppingSuggestion(label, options = {}) {
+  const { increment = 1, updateLastAdded = true } = options;
   const trimmedLabel = label.trim();
   if (!trimmedLabel) return;
   const normalized = normalizeText(trimmedLabel);
   if (!normalized) return;
+  const safeIncrement = Number(increment);
+  if (!Number.isFinite(safeIncrement) || safeIncrement <= 0) return;
   const current = state.shoppingSuggestions.get(normalized) || {
     label: trimmedLabel,
     count: 0,
@@ -1305,8 +1338,8 @@ function recordShoppingSuggestion(label) {
   };
   state.shoppingSuggestions.set(normalized, {
     label: trimmedLabel,
-    count: current.count + 1,
-    lastAdded: Date.now()
+    count: current.count + safeIncrement,
+    lastAdded: updateLastAdded ? Date.now() : current.lastAdded
   });
   persistShoppingSuggestions();
   renderShoppingSuggestions();
@@ -1881,6 +1914,9 @@ function addShoppingItem(value, options = {}) {
   toggleBtn.addEventListener("click", () => {
     const isChecked = item.classList.toggle("is-checked");
     toggleBtn.setAttribute("aria-pressed", String(isChecked));
+    if (isChecked) {
+      recordShoppingSuggestion(value, { increment: 1, updateLastAdded: true });
+    }
     refreshCategoryCount(groupList);
     persistShoppingList();
   });
@@ -2174,7 +2210,8 @@ async function addRecipeIngredientsToShopping(ingredients) {
     if (!label) return;
     addShoppingItem(label, {
       categoryId: ingredient.categoryId,
-      shouldPersist: false
+      shouldPersist: false,
+      shouldTrackSuggestions: false
     });
     addedAny = true;
   });
