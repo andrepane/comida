@@ -49,6 +49,14 @@ body {
   overflow-x: hidden;
 }
 
+/* Evita desbordes horizontales en iOS/PWA cuando hay texto largo en inputs. */
+input,
+select,
+textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+
 html {
   background: var(--bg);
 }
@@ -600,7 +608,12 @@ body[data-theme="dark"] .day-card.is-empty {
   background: rgba(248, 250, 252, 0.7);
   padding: 8px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .meal-row.is-dragging {
@@ -625,13 +638,22 @@ body[data-theme="dark"] .day-card.is-empty {
   font-size: 12px;
   font-weight: 600;
   color: var(--text);
-  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .meal-components {
   display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
   gap: 6px;
 }
 
@@ -660,6 +682,7 @@ body[data-theme="dark"] .meal-row {
 
 .meal-editor-modal {
   width: min(460px, 92vw);
+  max-width: 100%;
 }
 
 .recipe-components-editor {
@@ -683,12 +706,15 @@ body[data-theme="dark"] .meal-row {
 }
 
 .field input {
+  width: 100%;
   font-size: 14px;
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: rgba(248, 250, 252, 0.8);
   color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .field select {
@@ -2112,4 +2138,3 @@ body[data-theme="dark"] .recipe-field select {
   .shopping-quantity-field{ grid-area: qty; }
   .shopping-form > .btn[type="submit"]{ grid-area: btn; width: 100%; }
 }
-
