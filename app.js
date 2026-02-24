@@ -2432,7 +2432,11 @@ function addRecipeItem(recipe, options = {}) {
   cardComponents.className = "recipe-card__components";
   cardComponents.textContent = getMealSummary({ title: "", components: recipeComponents }) || "Sin P/H/V";
 
-  card.append(cardMedia, cardTitle, cardComponents);
+  const cardBody = document.createElement("div");
+  cardBody.className = "recipe-card__body";
+  cardBody.append(cardTitle, cardComponents);
+
+  card.append(cardMedia, cardBody);
 
   const ingredientsWrapper = document.createElement("div");
   ingredientsWrapper.className = "recipe-ingredients";
