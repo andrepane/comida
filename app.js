@@ -114,7 +114,9 @@ const recipeCategoryEmojis = {
 };
 
 const recipeCategoryImages = {
-  carne: "icon/carne.png"
+  carne: "icon/carne.png",
+  pescado: "icon/pescado.png",
+  "fruta-verdura": "icon/ensalada.png"
 };
 
 const weekdayFormatter = new Intl.DateTimeFormat("es-ES", { weekday: "long" });
