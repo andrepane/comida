@@ -169,7 +169,8 @@ const state = {
   inFlight: 0,
   lastError: null,
   remoteNoticeTimer: null,
-  seenDays: new Set()
+  seenDays: new Set(),
+  shoppingCategoryOrder: loadShoppingCategoryOrder()
 };
 
 const dragState = {
@@ -823,6 +824,42 @@ function saveCustomCategories(categories) {
 }
 
 state.customCategories = loadCustomCategories();
+
+function getDefaultShoppingCategoryOrder() {
+  return SHOPPING_CATEGORIES.map((category) => category.id);
+}
+
+function loadShoppingCategoryOrder() {
+  const defaultOrder = getDefaultShoppingCategoryOrder();
+  try {
+    const stored = localStorage.getItem("shoppingCategoryOrder");
+    const parsed = stored ? JSON.parse(stored) : [];
+    if (!Array.isArray(parsed)) return defaultOrder;
+    const seen = new Set();
+    const valid = parsed.filter((categoryId) => {
+      if (!defaultOrder.includes(categoryId) || seen.has(categoryId)) return false;
+      seen.add(categoryId);
+      return true;
+    });
+    defaultOrder.forEach((categoryId) => {
+      if (!seen.has(categoryId)) {
+        valid.push(categoryId);
+      }
+    });
+    return valid;
+  } catch {
+    return defaultOrder;
+  }
+}
+
+function saveShoppingCategoryOrder(order) {
+  localStorage.setItem("shoppingCategoryOrder", JSON.stringify(order));
+}
+
+function getShoppingCategoryOrderIndex(categoryId) {
+  const index = state.shoppingCategoryOrder.indexOf(categoryId);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
 
 function applyCustomCategories(categories) {
   state.customCategories = { ...categories };
@@ -1731,6 +1768,26 @@ function ensureCategoryGroup(categoryId) {
   const headerActions = document.createElement("div");
   headerActions.className = "shopping-category__actions";
 
+  const moveUpButton = document.createElement("button");
+  moveUpButton.type = "button";
+  moveUpButton.className = "shopping-category__button shopping-category__button--icon";
+  moveUpButton.dataset.action = "move-up";
+  moveUpButton.setAttribute("aria-label", `Subir categoría ${categoryMeta.label}`);
+  moveUpButton.innerHTML = '<i class="fa-solid fa-arrow-up" aria-hidden="true"></i>';
+  moveUpButton.addEventListener("click", () => {
+    moveShoppingCategory(categoryMeta.id, -1);
+  });
+
+  const moveDownButton = document.createElement("button");
+  moveDownButton.type = "button";
+  moveDownButton.className = "shopping-category__button shopping-category__button--icon";
+  moveDownButton.dataset.action = "move-down";
+  moveDownButton.setAttribute("aria-label", `Bajar categoría ${categoryMeta.label}`);
+  moveDownButton.innerHTML = '<i class="fa-solid fa-arrow-down" aria-hidden="true"></i>';
+  moveDownButton.addEventListener("click", () => {
+    moveShoppingCategory(categoryMeta.id, 1);
+  });
+
   const clearCheckedButton = document.createElement("button");
   clearCheckedButton.type = "button";
   clearCheckedButton.className = "shopping-category__button";
@@ -1757,7 +1814,7 @@ function ensureCategoryGroup(categoryId) {
     persistCategoryCollapse(categoryMeta.id, isCollapsed);
   });
 
-  headerActions.append(clearCheckedButton, toggleButton);
+  headerActions.append(moveUpButton, moveDownButton, clearCheckedButton, toggleButton);
 
   const accent = document.createElement("span");
   accent.className = "shopping-category__accent";
@@ -1776,12 +1833,10 @@ function ensureCategoryGroup(categoryId) {
     toggleButton.setAttribute("aria-expanded", "false");
   }
 
-  const categoryIndex = SHOPPING_CATEGORIES.findIndex((category) => category.id === categoryMeta.id);
+  const categoryIndex = getShoppingCategoryOrderIndex(categoryMeta.id);
   const groups = Array.from(shoppingList.querySelectorAll(".shopping-category"));
   const insertBefore = groups.find((element) => {
-    const elementIndex = SHOPPING_CATEGORIES.findIndex(
-      (category) => category.id === element.dataset.category
-    );
+    const elementIndex = getShoppingCategoryOrderIndex(element.dataset.category);
     return elementIndex > categoryIndex;
   });
 
@@ -1791,7 +1846,52 @@ function ensureCategoryGroup(categoryId) {
     shoppingList.append(group);
   }
 
+  refreshShoppingCategoryOrderControls();
+
   return list;
+}
+
+function refreshShoppingCategoryOrderControls() {
+  if (!shoppingList) return;
+  const groups = Array.from(shoppingList.querySelectorAll(".shopping-category"));
+  groups.forEach((group) => {
+    const categoryId = group.dataset.category;
+    const position = state.shoppingCategoryOrder.indexOf(categoryId);
+    const moveUpButton = group.querySelector('[data-action="move-up"]');
+    const moveDownButton = group.querySelector('[data-action="move-down"]');
+    if (moveUpButton) {
+      moveUpButton.disabled = position <= 0;
+    }
+    if (moveDownButton) {
+      moveDownButton.disabled = position === -1 || position >= state.shoppingCategoryOrder.length - 1;
+    }
+  });
+}
+
+function moveShoppingCategory(categoryId, direction) {
+  const fromIndex = state.shoppingCategoryOrder.indexOf(categoryId);
+  if (fromIndex === -1) return;
+  const toIndex = fromIndex + direction;
+  if (toIndex < 0 || toIndex >= state.shoppingCategoryOrder.length) return;
+
+  const nextOrder = [...state.shoppingCategoryOrder];
+  const [moved] = nextOrder.splice(fromIndex, 1);
+  nextOrder.splice(toIndex, 0, moved);
+  state.shoppingCategoryOrder = nextOrder;
+  saveShoppingCategoryOrder(state.shoppingCategoryOrder);
+
+  const groups = Array.from(shoppingList.querySelectorAll(".shopping-category"));
+  groups
+    .sort(
+      (left, right) =>
+        getShoppingCategoryOrderIndex(left.dataset.category) -
+        getShoppingCategoryOrderIndex(right.dataset.category)
+    )
+    .forEach((group) => {
+      shoppingList.append(group);
+    });
+
+  refreshShoppingCategoryOrderControls();
 }
 
 function removeCategoryGroupIfEmpty(listElement) {
