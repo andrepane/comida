@@ -1477,6 +1477,7 @@ body[data-theme="dark"] .recipe-ingredients-panel {
   justify-content: center;
   position: relative;
   overflow: hidden;
+  padding: 14px;
 }
 
 body[data-theme="dark"] .recipe-card__media {
