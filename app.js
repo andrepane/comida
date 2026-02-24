@@ -113,6 +113,10 @@ const recipeCategoryEmojis = {
   otros: "🍲"
 };
 
+const recipeCategoryImages = {
+  carne: "icon/carne.png"
+};
+
 const weekdayFormatter = new Intl.DateTimeFormat("es-ES", { weekday: "long" });
 const dateFormatter = new Intl.DateTimeFormat("es-ES", {
   day: "2-digit",
@@ -1715,6 +1719,21 @@ function getResolvedRecipeCategoryId({ categoryId = "", ingredients = [] } = {})
   return getRecipeVisualCategory(ingredients);
 }
 
+function setRecipeCardIconElement(iconElement, categoryId) {
+  const imagePath = recipeCategoryImages[categoryId];
+  if (imagePath) {
+    iconElement.textContent = "";
+    const image = document.createElement("img");
+    image.className = "recipe-card__icon-image";
+    image.src = imagePath;
+    image.alt = "";
+    iconElement.append(image);
+    return;
+  }
+
+  iconElement.textContent = recipeCategoryEmojis[categoryId] || recipeCategoryEmojis.otros;
+}
+
 function buildRecipeCategorySelect({ selectedCategoryId = "" } = {}) {
   const select = document.createElement("select");
   select.className = "recipe-category-select";
@@ -2390,7 +2409,7 @@ function addRecipeItem(recipe, options = {}) {
   const cardIcon = document.createElement("span");
   cardIcon.className = "recipe-card__icon";
   cardIcon.setAttribute("aria-hidden", "true");
-  cardIcon.textContent = recipeCategoryEmojis[visualRecipeCategoryId] || recipeCategoryEmojis.otros;
+  setRecipeCardIconElement(cardIcon, visualRecipeCategoryId);
   cardMedia.append(cardIcon);
 
   const applyRecipeCategoryPresentation = () => {
@@ -2400,7 +2419,7 @@ function addRecipeItem(recipe, options = {}) {
       ingredients
     });
     item.dataset.category = resolvedCategoryId;
-    cardIcon.textContent = recipeCategoryEmojis[resolvedCategoryId] || recipeCategoryEmojis.otros;
+    setRecipeCardIconElement(cardIcon, resolvedCategoryId);
   };
 
   const cardTitle = document.createElement("span");
