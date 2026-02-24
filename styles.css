@@ -505,6 +505,7 @@ button:focus-visible {
   min-height: 156px;
   box-shadow: var(--shadow-soft);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: grab;
 }
 
 .day-card.is-empty {
@@ -1058,6 +1059,12 @@ body[data-theme="dark"] .shopping-category {
   display: none;
 }
 
+.shopping-sort-hint {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 .shopping-item {
   padding: 10px 12px;
   border-radius: var(--radius-sm);
@@ -1070,6 +1077,7 @@ body[data-theme="dark"] .shopping-category {
   justify-content: space-between;
   gap: 12px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: grab;
 }
 
 .shopping-item--enter {
@@ -1134,6 +1142,12 @@ body[data-theme="dark"] .shopping-item {
 .shopping-item:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-soft);
+}
+
+.shopping-item--dragging {
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: grabbing;
 }
 
 .shopping-item__label {
@@ -1361,6 +1375,7 @@ body[data-theme="dark"] .recipe-ingredients-panel {
   width: 100%;
   min-height: 156px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: grab;
 }
 
 .recipe-card:hover {

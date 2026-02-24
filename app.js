@@ -178,6 +178,10 @@ const dragState = {
   dragging: false
 };
 
+const shoppingDragState = {
+  draggingItem: null
+};
+
 function isValidCalendarView(view) {
   return VALID_CALENDAR_VIEWS.includes(view);
 }
@@ -1767,6 +1771,8 @@ function ensureCategoryGroup(categoryId) {
 
   const list = document.createElement("ul");
   list.className = "shopping-category__list";
+  list.addEventListener("dragover", handleShoppingListDragOver);
+  list.addEventListener("drop", handleShoppingListDrop);
 
   group.append(header, list);
 
@@ -1799,6 +1805,89 @@ function removeCategoryGroupIfEmpty(listElement) {
   if (listElement.children.length > 0) return;
   const group = listElement.closest(".shopping-category");
   if (group) group.remove();
+}
+
+function handleShoppingItemDragStart(event) {
+  const item = event.currentTarget;
+  shoppingDragState.draggingItem = item;
+  item.classList.add("shopping-item--dragging");
+  event.dataTransfer.effectAllowed = "move";
+}
+
+function handleShoppingItemDragEnd(event) {
+  event.currentTarget.classList.remove("shopping-item--dragging");
+  shoppingDragState.draggingItem = null;
+}
+
+function getShoppingItemDropTarget(list, clientY) {
+  const items = Array.from(list.querySelectorAll(".shopping-item:not(.shopping-item--dragging)"));
+  let target = null;
+  let closestOffset = Number.NEGATIVE_INFINITY;
+  items.forEach((item) => {
+    const box = item.getBoundingClientRect();
+    const offset = clientY - box.top - box.height / 2;
+    if (offset < 0 && offset > closestOffset) {
+      closestOffset = offset;
+      target = item;
+    }
+  });
+  return target;
+}
+
+function moveShoppingItemByDrag(targetList, clientY) {
+  const draggingItem = shoppingDragState.draggingItem;
+  if (!draggingItem || !targetList) return;
+
+  const previousList = draggingItem.closest(".shopping-category__list");
+  const dropTarget = getShoppingItemDropTarget(targetList, clientY);
+  if (dropTarget) {
+    targetList.insertBefore(draggingItem, dropTarget);
+  } else {
+    targetList.append(draggingItem);
+  }
+
+  const categoryId = targetList.closest(".shopping-category")?.dataset.category;
+  if (categoryId) {
+    draggingItem.dataset.category = categoryId;
+    const categoryMeta = getCategoryMeta(categoryId);
+    const categoryLabel = draggingItem.querySelector(".shopping-item__category-label");
+    if (categoryLabel) {
+      categoryLabel.textContent = categoryMeta.label;
+    }
+    const icon = draggingItem.querySelector(".shopping-item__icon");
+    if (icon) {
+      icon.className = `fa-solid ${getCategoryIconClass(categoryMeta.id)} shopping-item__icon`;
+    }
+    const select = draggingItem.querySelector(".shopping-item__select");
+    if (select && select.value !== categoryMeta.id) {
+      select.value = categoryMeta.id;
+    }
+    const label = draggingItem.querySelector(".shopping-item__name")?.textContent?.trim() ?? "";
+    if (label) {
+      setCustomCategory(label, categoryMeta.id);
+    }
+  }
+
+  if (previousList !== targetList) {
+    removeCategoryGroupIfEmpty(previousList);
+    refreshCategoryCount(previousList);
+  }
+  refreshCategoryCount(targetList);
+}
+
+function handleShoppingListDragOver(event) {
+  const list = event.currentTarget;
+  if (!shoppingDragState.draggingItem) return;
+  event.preventDefault();
+  moveShoppingItemByDrag(list, event.clientY);
+}
+
+function handleShoppingListDrop(event) {
+  event.preventDefault();
+  const list = event.currentTarget;
+  if (!shoppingDragState.draggingItem) return;
+  moveShoppingItemByDrag(list, event.clientY);
+  persistShoppingList();
 }
 
 function updateShoppingItemCategory(item, nextCategoryId) {
@@ -1846,10 +1935,13 @@ function addShoppingItem(value, options = {}) {
 
   const item = document.createElement("li");
   item.className = "shopping-item";
+  item.draggable = true;
   item.dataset.itemId = itemId;
   item.dataset.createdAt = String(createdAt);
   item.dataset.category = categoryMeta.id;
   item.dataset.quantity = String(safeQuantity);
+  item.addEventListener("dragstart", handleShoppingItemDragStart);
+  item.addEventListener("dragend", handleShoppingItemDragEnd);
 
   const label = document.createElement("span");
   label.className = "shopping-item__label";
