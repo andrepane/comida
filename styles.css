@@ -1994,12 +1994,14 @@ body[data-theme="dark"] .recipe-field select {
     grid-template-columns: 1fr;
   }
 
-  .recipe-card__media {
-    height: 116px;
+.recipe-card__media {
+    height: 110px; /* o 104px si lo quieres más compacto */
+    padding: 12px;
   }
 
   .recipe-card__icon-image {
-    object-position: center 28%;
+    width: 64px;
+    height: 64px;
   }
 
   .section-switch {
