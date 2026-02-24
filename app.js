@@ -1854,33 +1854,45 @@ function ensureCategoryGroup(categoryId) {
 function refreshShoppingCategoryOrderControls() {
   if (!shoppingList) return;
   const groups = Array.from(shoppingList.querySelectorAll(".shopping-category"));
+  const visibleCategoryIds = groups.map((group) => group.dataset.category);
   groups.forEach((group) => {
     const categoryId = group.dataset.category;
-    const position = state.shoppingCategoryOrder.indexOf(categoryId);
+    const position = visibleCategoryIds.indexOf(categoryId);
     const moveUpButton = group.querySelector('[data-action="move-up"]');
     const moveDownButton = group.querySelector('[data-action="move-down"]');
     if (moveUpButton) {
       moveUpButton.disabled = position <= 0;
     }
     if (moveDownButton) {
-      moveDownButton.disabled = position === -1 || position >= state.shoppingCategoryOrder.length - 1;
+      moveDownButton.disabled = position === -1 || position >= visibleCategoryIds.length - 1;
     }
   });
 }
 
 function moveShoppingCategory(categoryId, direction) {
-  const fromIndex = state.shoppingCategoryOrder.indexOf(categoryId);
-  if (fromIndex === -1) return;
-  const toIndex = fromIndex + direction;
-  if (toIndex < 0 || toIndex >= state.shoppingCategoryOrder.length) return;
+  const groups = Array.from(shoppingList.querySelectorAll(".shopping-category"));
+  const visibleCategoryIds = groups.map((group) => group.dataset.category);
+  const fromVisibleIndex = visibleCategoryIds.indexOf(categoryId);
+  if (fromVisibleIndex === -1) return;
+
+  const toVisibleIndex = fromVisibleIndex + direction;
+  if (toVisibleIndex < 0 || toVisibleIndex >= visibleCategoryIds.length) return;
+
+  const targetCategoryId = visibleCategoryIds[toVisibleIndex];
+  if (!targetCategoryId || targetCategoryId === categoryId) return;
 
   const nextOrder = [...state.shoppingCategoryOrder];
+  const fromIndex = nextOrder.indexOf(categoryId);
+  if (fromIndex === -1) return;
   const [moved] = nextOrder.splice(fromIndex, 1);
-  nextOrder.splice(toIndex, 0, moved);
+
+  const targetIndex = nextOrder.indexOf(targetCategoryId);
+  if (targetIndex === -1) return;
+  const insertIndex = direction < 0 ? targetIndex : targetIndex + 1;
+  nextOrder.splice(insertIndex, 0, moved);
+
   state.shoppingCategoryOrder = nextOrder;
   saveShoppingCategoryOrder(state.shoppingCategoryOrder);
-
-  const groups = Array.from(shoppingList.querySelectorAll(".shopping-category"));
   groups
     .sort(
       (left, right) =>
