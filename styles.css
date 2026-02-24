@@ -1496,6 +1496,7 @@ body[data-theme="dark"] .recipe-card__media {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 35%;
   display: block;
 }
 
@@ -1992,6 +1993,14 @@ body[data-theme="dark"] .recipe-field select {
 @media (max-width: 480px) {
   .calendar-grid {
     grid-template-columns: 1fr;
+  }
+
+  .recipe-card__media {
+    height: 116px;
+  }
+
+  .recipe-card__icon-image {
+    object-position: center 28%;
   }
 
   .section-switch {
