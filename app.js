@@ -2356,7 +2356,11 @@ async function addRecipeIngredientsToShopping(ingredients) {
 
 function closeRecipeModal(item) {
   if (!item) return;
+  const modal = item.__recipeModal;
   item.classList.remove("is-open");
+  if (modal) {
+    modal.classList.remove("is-open");
+  }
   document.body.classList.remove("has-recipe-modal");
   const trigger = item.querySelector(".recipe-card");
   if (trigger) {
@@ -2372,7 +2376,10 @@ function openRecipeModal(item) {
   if (state.activeRecipeModal && state.activeRecipeModal !== item) {
     closeRecipeModal(state.activeRecipeModal);
   }
+  const modal = item.__recipeModal;
+  if (!modal) return;
   item.classList.add("is-open");
+  modal.classList.add("is-open");
   document.body.classList.add("has-recipe-modal");
   const trigger = item.querySelector(".recipe-card");
   if (trigger) {
@@ -2609,6 +2616,7 @@ function addRecipeItem(recipe, options = {}) {
   deleteButton.className = "btn ghost small";
   deleteButton.textContent = "Eliminar";
   deleteButton.addEventListener("click", () => {
+    modal.remove();
     item.remove();
     updateRecipesEmptyState();
     applyRecipesFilter();
@@ -2662,7 +2670,9 @@ function addRecipeItem(recipe, options = {}) {
     openRecipeModal(item);
   });
 
-  item.append(card, modal);
+  item.__recipeModal = modal;
+  item.append(card);
+  document.body.append(modal);
   applyRecipeCategoryPresentation();
   recipesList.append(item);
   updateRecipesEmptyState();

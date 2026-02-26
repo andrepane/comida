@@ -1595,10 +1595,11 @@ body[data-theme="dark"] .recipe-card__media {
   display: none;
   align-items: center;
   justify-content: center;
-  z-index: 40;
+  z-index: 14;
+  padding: 16px;
 }
 
-.recipe-item.is-open .recipe-modal {
+.recipe-modal.is-open {
   display: flex;
 }
 
@@ -1618,6 +1619,7 @@ body[data-theme="dark"] .recipe-card__media {
   width: min(520px, 90vw);
   max-height: 90vh;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
   display: flex;
