@@ -1119,6 +1119,8 @@ async function saveRecipesRemote() {
 function replaceRecipes(recipes) {
   if (!recipesList) return;
   const activeRecipeId = state.activeRecipeModal?.dataset?.recipeId ?? null;
+  state.activeRecipeModal = null;
+  document.body.classList.remove("has-recipe-modal");
   recipesList.innerHTML = "";
   recipes.forEach((recipe) => {
     if (recipe?.title) {
