@@ -899,11 +899,18 @@ function generateRecipeId() {
 function normalizeRecipeIngredients(ingredients) {
   if (!Array.isArray(ingredients)) return [];
   return ingredients
-    .map((ingredient) => ({
-      label: ingredient?.label?.trim() ?? "",
-      categoryId: ingredient?.categoryId || "",
-      includeInShopping: ingredient?.includeInShopping !== false
-    }))
+    .map((ingredient) => {
+      const quantityValue = Number.parseFloat(ingredient?.quantityValue);
+      const quantityUnit = ingredient?.quantityUnit === "unit" ? "unit" : "g";
+      const hasQuantity = Number.isFinite(quantityValue) && quantityValue > 0;
+      return {
+        label: ingredient?.label?.trim() ?? "",
+        categoryId: ingredient?.categoryId || "",
+        includeInShopping: ingredient?.includeInShopping !== false,
+        quantityValue: hasQuantity ? quantityValue : "",
+        quantityUnit
+      };
+    })
     .filter((ingredient) => ingredient.label);
 }
 
@@ -935,7 +942,7 @@ function getRecipeIngredientCategoryId(label, categoryId) {
 }
 
 function buildRecipeIngredientItem(ingredient, options = {}) {
-  const { onRemove, onCategoryChange, onToggleInclude } = options;
+  const { onRemove, onCategoryChange, onToggleInclude, onQuantityChange } = options;
   const item = document.createElement("li");
   item.className = "recipe-ingredient";
 
@@ -943,8 +950,54 @@ function buildRecipeIngredientItem(ingredient, options = {}) {
   label.className = "recipe-ingredient__label";
   label.textContent = ingredient.label;
 
+  const quantityWrapper = document.createElement("div");
+  quantityWrapper.className = "recipe-ingredient__quantity";
+
+  const quantityInput = document.createElement("input");
+  quantityInput.type = "number";
+  quantityInput.min = "0";
+  quantityInput.step = "1";
+  quantityInput.inputMode = "numeric";
+  quantityInput.className = "recipe-ingredient__quantity-input";
+  quantityInput.placeholder = "Cantidad";
+  quantityInput.setAttribute("aria-label", `Cantidad para ${ingredient.label}`);
+  quantityInput.value = ingredient?.quantityValue ? String(ingredient.quantityValue) : "";
+
+  const quantityUnit = document.createElement("select");
+  quantityUnit.className = "recipe-ingredient__quantity-unit";
+  quantityUnit.setAttribute("aria-label", `Unidad para ${ingredient.label}`);
+  quantityUnit.innerHTML = `
+    <option value="g">g</option>
+    <option value="unit">ud</option>
+  `;
+  quantityUnit.value = ingredient?.quantityUnit === "unit" ? "unit" : "g";
+
+  const updateQuantityState = () => {
+    const parsedValue = Number.parseFloat(quantityInput.value);
+    const hasQuantity = Number.isFinite(parsedValue) && parsedValue > 0;
+    item.dataset.quantityValue = hasQuantity ? String(Math.round(parsedValue)) : "";
+    item.dataset.quantityUnit = quantityUnit.value;
+    if (onQuantityChange) {
+      onQuantityChange({
+        quantityValue: item.dataset.quantityValue,
+        quantityUnit: item.dataset.quantityUnit
+      });
+    }
+  };
+
+  quantityInput.addEventListener("input", () => {
+    updateQuantityState();
+  });
+  quantityUnit.addEventListener("change", () => {
+    updateQuantityState();
+  });
+
+  quantityWrapper.append(quantityInput, quantityUnit);
+
   const categoryId = getRecipeIngredientCategoryId(ingredient.label, ingredient.categoryId);
   item.dataset.category = categoryId;
+  item.dataset.quantityValue = "";
+  item.dataset.quantityUnit = quantityUnit.value;
   const isIncluded = ingredient.includeInShopping !== false;
   item.dataset.includeInShopping = String(isIncluded);
   item.classList.toggle("is-excluded", !isIncluded);
@@ -1010,7 +1063,9 @@ function buildRecipeIngredientItem(ingredient, options = {}) {
     }
   });
 
-  item.append(label, categoryWrapper, toggleIncludeButton, removeButton);
+  updateQuantityState();
+
+  item.append(label, quantityWrapper, categoryWrapper, toggleIncludeButton, removeButton);
   return item;
 }
 
@@ -1025,7 +1080,9 @@ function getRecipeIngredientsFromList(listElement) {
   return Array.from(listElement.querySelectorAll(".recipe-ingredient")).map((item) => ({
     label: item.querySelector(".recipe-ingredient__label")?.textContent?.trim() ?? "",
     categoryId: item.dataset.category || "",
-    includeInShopping: item.dataset.includeInShopping !== "false"
+    includeInShopping: item.dataset.includeInShopping !== "false",
+    quantityValue: item.dataset.quantityValue || "",
+    quantityUnit: item.dataset.quantityUnit === "unit" ? "unit" : "g"
   })).filter((ingredient) => ingredient.label);
 }
 
@@ -2458,6 +2515,9 @@ function addRecipeItem(recipe, options = {}) {
       },
       onToggleInclude: () => {
         persistRecipes();
+      },
+      onQuantityChange: () => {
+        persistRecipes();
       }
     });
     ingredientsList.append(ingredientItem);
@@ -2491,6 +2551,9 @@ function addRecipeItem(recipe, options = {}) {
         persistRecipes();
       },
       onToggleInclude: () => {
+        persistRecipes();
+      },
+      onQuantityChange: () => {
         persistRecipes();
       }
     });
