@@ -761,10 +761,30 @@ function changeWeek(offset) {
   buildCalendar();
 }
 
+function scrollCalendarDayIntoView(dateId, { forcePageScroll = false } = {}) {
+  const elements = state.dayElements.get(dateId);
+  if (!elements?.card) return;
+
+  const shouldForcePageScroll = forcePageScroll && isIOSDevice();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (shouldForcePageScroll) {
+        const y = window.scrollY + elements.card.getBoundingClientRect().top - 16;
+        window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+        return;
+      }
+      elements.card.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
+
 function jumpToToday() {
-  state.currentDate = new Date();
-  state.currentMonday = getMonday(state.currentDate);
+  const today = startOfDay(new Date());
+  const todayId = formatDateId(today);
+  state.currentDate = today;
+  state.currentMonday = getMonday(today);
   buildCalendar();
+  scrollCalendarDayIntoView(todayId, { forcePageScroll: true });
 }
 
 function getCalendarStartDate() {
