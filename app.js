@@ -49,7 +49,6 @@ const shoppingSuggestionsList = document.getElementById("shoppingSuggestionsList
 const shoppingSuggestionsEmpty = document.getElementById("shoppingSuggestionsEmpty");
 const shoppingInlineSuggestions = document.getElementById("shoppingInlineSuggestions");
 const shoppingInlineSuggestionsList = document.getElementById("shoppingInlineSuggestionsList");
-const shoppingInlineSuggestionsHint = document.getElementById("shoppingInlineSuggestionsHint");
 const recipesForm = document.getElementById("recipesForm");
 const recipesInput = document.getElementById("recipesInput");
 const recipeCategoryInput = document.getElementById("recipeCategoryInput");
@@ -1796,8 +1795,6 @@ function getCategoryMeta(categoryId) {
 
 function refreshShoppingAutocompleteIndex() {
   state.shoppingAutocompleteIndex = buildIngredientCatalog({
-    shoppingSuggestions: Array.from(state.shoppingSuggestions.values()),
-    shoppingItems: loadShoppingItems(),
     recipes: loadRecipes(),
     customCategories: state.customCategories,
     resolveCategory: (label) => getShoppingCategory(label)
@@ -1864,12 +1861,6 @@ function renderShoppingAutocompleteSuggestions() {
 
   shoppingInlineSuggestions.hidden = false;
   shoppingInlineSuggestionsList.innerHTML = "";
-  if (shoppingInlineSuggestionsHint) {
-    shoppingInlineSuggestionsHint.textContent =
-      matches.length === 1
-        ? "1 coincidencia guardada. Usa ↑/↓ y Enter para añadirla rápido."
-        : `${matches.length} coincidencias guardadas. Usa ↑/↓ y Enter para añadir una.`;
-  }
 
   matches.forEach((match, index) => {
     const categoryMeta = getCategoryMeta(match.categoryId);

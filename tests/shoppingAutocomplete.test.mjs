@@ -52,3 +52,18 @@ test("encuentra coincidencias por palabras internas", () => {
 
   assert.equal(matches[0].label, "Carne picada");
 });
+
+test("incluye ingredientes guardados al menos una vez desde recetas", () => {
+  const catalog = buildIngredientCatalog({
+    recipes: [
+      { ingredients: [{ label: "Calabacín", categoryId: "fruta-verdura" }] },
+      { ingredients: [{ label: "Calabacín", categoryId: "fruta-verdura" }, { label: "Arroz", categoryId: "hidratos" }] }
+    ],
+    resolveCategory: () => "otros"
+  });
+
+  const labels = catalog.map((item) => item.label).sort((a, b) => a.localeCompare(b, "es"));
+
+  assert.deepEqual(labels, ["Arroz", "Calabacín"]);
+  assert.equal(catalog.find((item) => item.label === "Calabacín")?.usageCount, 2);
+});
