@@ -136,6 +136,13 @@
             </label>
             <button class="btn secondary" type="submit">Añadir</button>
           </form>
+          <section class="shopping-inline-suggestions" id="shoppingInlineSuggestions" hidden aria-label="Sugerencias de ingredientes">
+            <div class="shopping-inline-suggestions__header">
+              <p class="shopping-inline-suggestions__title">Ingredientes guardados relacionados</p>
+              <p class="shopping-inline-suggestions__hint" id="shoppingInlineSuggestionsHint">Pulsa Enter para añadir el ingrediente escrito.</p>
+            </div>
+            <ul class="shopping-inline-suggestions__list" id="shoppingInlineSuggestionsList" aria-live="polite"></ul>
+          </section>
           <details class="shopping-suggestions" id="shoppingSuggestions">
             <summary>
               <span>Sugerencias rápidas</span>

@@ -13,6 +13,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import { normalizeText } from "./utils/normalizeText.js";
+import {
+  buildIngredientCatalog,
+  getMatchingIngredientSuggestions
+} from "./utils/shoppingAutocomplete.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCvxpyyTZvVYhXX8MrtJ1PORMMKMJHD18M",
@@ -43,6 +47,9 @@ const shoppingEmpty = document.getElementById("shoppingEmpty");
 const shoppingSuggestions = document.getElementById("shoppingSuggestions");
 const shoppingSuggestionsList = document.getElementById("shoppingSuggestionsList");
 const shoppingSuggestionsEmpty = document.getElementById("shoppingSuggestionsEmpty");
+const shoppingInlineSuggestions = document.getElementById("shoppingInlineSuggestions");
+const shoppingInlineSuggestionsList = document.getElementById("shoppingInlineSuggestionsList");
+const shoppingInlineSuggestionsHint = document.getElementById("shoppingInlineSuggestionsHint");
 const recipesForm = document.getElementById("recipesForm");
 const recipesInput = document.getElementById("recipesInput");
 const recipeCategoryInput = document.getElementById("recipeCategoryInput");
@@ -138,6 +145,7 @@ const SHOPPING_SUGGESTIONS_MIN_COUNT = 2;
 const SHOPPING_SUGGESTIONS_RECENCY_WINDOW_DAYS = 14;
 const SHOPPING_SUGGESTIONS_RECENCY_MULTIPLIER = 0.3;
 const SHOPPING_SUGGESTIONS_FREQUENCY_MULTIPLIER = 0.7;
+const SHOPPING_INLINE_SUGGESTIONS_LIMIT = 6;
 const VALID_APP_VIEWS = ["calendarView", "shoppingView", "recipesView"];
 const DEFAULT_ACTIVE_VIEW = VALID_APP_VIEWS[0];
 const CALENDAR_VIEW_CONFIG = {
@@ -165,6 +173,9 @@ const state = {
   shoppingSuggestionsUnsubscribe: null,
   shoppingSuggestionsSaveTimer: null,
   shoppingSuggestions: new Map(),
+  shoppingAutocompleteIndex: [],
+  shoppingAutocompleteActiveIndex: -1,
+  shoppingAutocompleteKeyboardNavigation: false,
   recipesUnsubscribe: null,
   recipesSaveTimer: null,
   recipesFilter: "",
@@ -891,6 +902,7 @@ function getShoppingCategoryOrderIndex(categoryId) {
 function applyCustomCategories(categories) {
   state.customCategories = { ...categories };
   saveCustomCategories(state.customCategories);
+  refreshShoppingAutocompleteIndex();
 }
 
 function getCustomCategoriesDocRef() {
@@ -1204,6 +1216,7 @@ function replaceRecipes(recipes) {
   });
   updateRecipesEmptyState();
   persistRecipes({ syncRemote: false });
+  refreshShoppingAutocompleteIndex();
   if (activeRecipeId) {
     const nextActive = Array.from(recipesList.querySelectorAll(".recipe-item"))
       .find((item) => item.dataset.recipeId === activeRecipeId);
@@ -1484,6 +1497,7 @@ function persistShoppingList({ syncRemote = true, updateTimestamp = true } = {})
   if (syncRemote) {
     scheduleShoppingItemsSave();
   }
+  refreshShoppingAutocompleteIndex();
 }
 
 function persistShoppingSuggestions({ syncRemote = true } = {}) {
@@ -1590,6 +1604,7 @@ function applyShoppingSuggestions(suggestions) {
   state.shoppingSuggestions = suggestions;
   saveShoppingSuggestions(state.shoppingSuggestions);
   renderShoppingSuggestions();
+  refreshShoppingAutocompleteIndex();
 }
 
 function getCustomCategory(value) {
@@ -1602,6 +1617,7 @@ function setCustomCategory(value, categoryId) {
   state.customCategories = { ...state.customCategories, [normalized]: categoryId };
   saveCustomCategories(state.customCategories);
   scheduleCustomCategoriesSave();
+  refreshShoppingAutocompleteIndex();
 }
 
 function scheduleCustomCategoriesSave() {
@@ -1776,6 +1792,125 @@ function getShoppingCategory(value) {
 
 function getCategoryMeta(categoryId) {
   return SHOPPING_CATEGORIES.find((category) => category.id === categoryId) || SHOPPING_CATEGORIES.at(-1);
+}
+
+function refreshShoppingAutocompleteIndex() {
+  state.shoppingAutocompleteIndex = buildIngredientCatalog({
+    shoppingSuggestions: Array.from(state.shoppingSuggestions.values()),
+    shoppingItems: loadShoppingItems(),
+    recipes: loadRecipes(),
+    customCategories: state.customCategories,
+    resolveCategory: (label) => getShoppingCategory(label)
+  });
+  renderShoppingAutocompleteSuggestions();
+}
+
+function getShoppingAutocompleteMatches(query = shoppingInput?.value ?? "") {
+  return getMatchingIngredientSuggestions({
+    query,
+    catalog: state.shoppingAutocompleteIndex,
+    excludedLabels: getNormalizedShoppingLabelsInList(),
+    limit: SHOPPING_INLINE_SUGGESTIONS_LIMIT
+  });
+}
+
+function hideShoppingAutocompleteSuggestions() {
+  state.shoppingAutocompleteActiveIndex = -1;
+  state.shoppingAutocompleteKeyboardNavigation = false;
+  if (shoppingInlineSuggestions) {
+    shoppingInlineSuggestions.hidden = true;
+  }
+  if (shoppingInlineSuggestionsList) {
+    shoppingInlineSuggestionsList.innerHTML = "";
+  }
+}
+
+function selectShoppingAutocompleteSuggestion(label) {
+  if (!label) return;
+  const existingItem = findShoppingItemByLabel(label);
+  if (existingItem) {
+    shoppingInput.value = "";
+    hideShoppingAutocompleteSuggestions();
+    existingItem.scrollIntoView({ behavior: "smooth", block: "center" });
+    shoppingInput.focus();
+    return;
+  }
+
+  const quantity = Math.max(1, Number(shoppingQuantity?.value) || 1);
+  addShoppingItem(label, { quantity });
+  shoppingInput.value = "";
+  if (shoppingQuantity) shoppingQuantity.value = "1";
+  shoppingForm.classList.remove("is-submitted");
+  void shoppingForm.offsetWidth;
+  shoppingForm.classList.add("is-submitted");
+  setTimeout(() => shoppingForm.classList.remove("is-submitted"), 260);
+  hideShoppingAutocompleteSuggestions();
+  shoppingInput.focus();
+}
+
+function renderShoppingAutocompleteSuggestions() {
+  if (!shoppingInlineSuggestions || !shoppingInlineSuggestionsList || !shoppingInput) return;
+  const query = shoppingInput.value.trim();
+  const matches = getShoppingAutocompleteMatches(query);
+
+  if (!query || !matches.length) {
+    hideShoppingAutocompleteSuggestions();
+    return;
+  }
+
+  if (state.shoppingAutocompleteActiveIndex >= matches.length) {
+    state.shoppingAutocompleteActiveIndex = 0;
+  }
+
+  shoppingInlineSuggestions.hidden = false;
+  shoppingInlineSuggestionsList.innerHTML = "";
+  if (shoppingInlineSuggestionsHint) {
+    shoppingInlineSuggestionsHint.textContent =
+      matches.length === 1
+        ? "1 coincidencia guardada. Usa ↑/↓ y Enter para añadirla rápido."
+        : `${matches.length} coincidencias guardadas. Usa ↑/↓ y Enter para añadir una.`;
+  }
+
+  matches.forEach((match, index) => {
+    const categoryMeta = getCategoryMeta(match.categoryId);
+    const card = document.createElement("li");
+    card.className = "shopping-inline-suggestions__item";
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "shopping-inline-card";
+    button.setAttribute("aria-label", `Añadir ${match.label}`);
+    button.classList.toggle("is-active", index === state.shoppingAutocompleteActiveIndex);
+
+    const iconWrap = document.createElement("span");
+    iconWrap.className = "shopping-inline-card__icon-wrap";
+    const icon = document.createElement("i");
+    icon.className = `fa-solid ${getCategoryIconClass(match.categoryId)} shopping-inline-card__icon`;
+    icon.setAttribute("aria-hidden", "true");
+    iconWrap.append(icon);
+
+    const textWrap = document.createElement("span");
+    textWrap.className = "shopping-inline-card__text";
+
+    const title = document.createElement("span");
+    title.className = "shopping-inline-card__title";
+    title.textContent = match.label;
+
+    const meta = document.createElement("span");
+    meta.className = "shopping-inline-card__meta";
+    const usageText = match.usageCount > 1 ? `· ${match.usageCount} usos` : "· guardado";
+    meta.textContent = `${categoryMeta.label} ${usageText}`;
+
+    textWrap.append(title, meta);
+
+    button.append(iconWrap, textWrap);
+    button.addEventListener("click", () => {
+      selectShoppingAutocompleteSuggestion(match.label);
+    });
+
+    card.append(button);
+    shoppingInlineSuggestionsList.append(card);
+  });
 }
 
 function getRecipeVisualCategory(ingredients = []) {
@@ -2163,6 +2298,7 @@ function addShoppingItem(value, options = {}) {
   if (shouldPersist) {
     persistShoppingList();
   }
+  refreshShoppingAutocompleteIndex();
 }
 
 function findShoppingItemByLabel(value) {
@@ -2770,14 +2906,61 @@ function initShoppingList() {
       existingItem.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    addShoppingItem(value, { quantity });
-    shoppingInput.value = "";
-    if (shoppingQuantity) shoppingQuantity.value = "1";
-    shoppingForm.classList.remove("is-submitted");
-    void shoppingForm.offsetWidth;
-    shoppingForm.classList.add("is-submitted");
-    setTimeout(() => shoppingForm.classList.remove("is-submitted"), 260);
-    shoppingInput.focus();
+    selectShoppingAutocompleteSuggestion(value);
+  });
+  shoppingInput.addEventListener("input", () => {
+    state.shoppingAutocompleteActiveIndex = 0;
+    state.shoppingAutocompleteKeyboardNavigation = false;
+    renderShoppingAutocompleteSuggestions();
+  });
+  shoppingInput.addEventListener("focus", () => {
+    state.shoppingAutocompleteActiveIndex = 0;
+    state.shoppingAutocompleteKeyboardNavigation = false;
+    renderShoppingAutocompleteSuggestions();
+  });
+  shoppingInput.addEventListener("keydown", (event) => {
+    const matches = getShoppingAutocompleteMatches();
+    if (!matches.length) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      state.shoppingAutocompleteKeyboardNavigation = true;
+      state.shoppingAutocompleteActiveIndex =
+        (state.shoppingAutocompleteActiveIndex + 1 + matches.length) % matches.length;
+      renderShoppingAutocompleteSuggestions();
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      state.shoppingAutocompleteKeyboardNavigation = true;
+      state.shoppingAutocompleteActiveIndex =
+        (state.shoppingAutocompleteActiveIndex - 1 + matches.length) % matches.length;
+      renderShoppingAutocompleteSuggestions();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      hideShoppingAutocompleteSuggestions();
+      return;
+    }
+
+    if (
+      event.key === "Enter" &&
+      state.shoppingAutocompleteKeyboardNavigation &&
+      state.shoppingAutocompleteActiveIndex >= 0
+    ) {
+      event.preventDefault();
+      const activeSuggestion = matches[state.shoppingAutocompleteActiveIndex];
+      if (activeSuggestion) {
+        selectShoppingAutocompleteSuggestion(activeSuggestion.label);
+      }
+    }
+  });
+  shoppingInput.addEventListener("blur", () => {
+    setTimeout(() => {
+      hideShoppingAutocompleteSuggestions();
+    }, 120);
   });
   if (clearCheckedBtn) {
     clearCheckedBtn.addEventListener("click", () => {
@@ -2816,6 +2999,7 @@ function initShoppingList() {
   }
   updateShoppingEmptyState();
   renderShoppingSuggestions();
+  refreshShoppingAutocompleteIndex();
 }
 
 function initRecipesList() {
@@ -2869,6 +3053,7 @@ function initRecipesList() {
   }
   updateRecipesEmptyState();
   applyRecipesFilter();
+  refreshShoppingAutocompleteIndex();
 }
 
 function setActiveView(viewId) {
