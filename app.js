@@ -2365,11 +2365,28 @@ function buildAutocompleteList(id, values) {
   return datalist;
 }
 
+
+function findRecipeById(recipeId) {
+  if (!recipeId) return null;
+  return loadRecipes().find((recipe) => recipe?.id === recipeId) || null;
+}
+
+function findRecipeByTitle(title) {
+  const normalizedTitle = normalizeText(title ?? "");
+  if (!normalizedTitle) return null;
+  return loadRecipes().find((recipe) => normalizeText(recipe?.title ?? "") === normalizedTitle) || null;
+}
+
+function resolveRecipeFromMealEntry(entry) {
+  if (!entry) return null;
+  return findRecipeById(entry.recipeId) || findRecipeByTitle(entry.title) || null;
+}
 function openMealEntryEditor({ dateId, meal, dateLabel }) {
   const day = state.dayElements.get(dateId);
   if (!day) return;
   const mealKey = meal === "dinner" ? "dinner" : "lunch";
   const currentEntry = normalizeMealEntry(day[mealKey].entry);
+  const linkedRecipe = resolveRecipeFromMealEntry(currentEntry);
 
   const overlay = document.createElement("div");
   overlay.className = "app-modal-overlay";
@@ -2425,7 +2442,20 @@ function openMealEntryEditor({ dateId, meal, dateLabel }) {
   saveButton.type = "submit";
   saveButton.className = "btn secondary";
   saveButton.textContent = "Guardar";
-  actions.append(cancelButton, saveButton);
+
+  if (linkedRecipe?.ingredients?.length) {
+    const addIngredientsButton = document.createElement("button");
+    addIngredientsButton.type = "button";
+    addIngredientsButton.className = "btn ghost";
+    addIngredientsButton.textContent = "Añadir ingredientes";
+    addIngredientsButton.addEventListener("click", async () => {
+      await addRecipeIngredientsToShopping(linkedRecipe.ingredients);
+      showCalendarNotice(`Ingredientes añadidos desde ${linkedRecipe.title}.`);
+    });
+    actions.append(cancelButton, addIngredientsButton, saveButton);
+  } else {
+    actions.append(cancelButton, saveButton);
+  }
 
   modal.prepend(title);
   modal.append(notesField, actions);
@@ -2445,14 +2475,16 @@ function openMealEntryEditor({ dateId, meal, dateLabel }) {
 
   modal.addEventListener("submit", (event) => {
     event.preventDefault();
+    const nextTitle = notesInput.value;
+    const matchedRecipe = findRecipeByTitle(nextTitle);
     day[mealKey].entry = normalizeMealEntry({
-      title: notesInput.value,
+      title: nextTitle,
       components: {
         protein: inputs.protein.value,
         carbs: inputs.carbs.value,
         veggies: inputs.veggies.value
       },
-      recipeId: currentEntry.recipeId || ""
+      recipeId: currentEntry.recipeId || matchedRecipe?.id || ""
     });
     updateInputs(dateId, { lunch: day.lunch.entry, dinner: day.dinner.entry });
     scheduleSave(dateId, true);
