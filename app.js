@@ -407,6 +407,10 @@ function normalizeMealComponents(components) {
   };
 }
 
+function normalizeMealIngredients(ingredients) {
+  return normalizeRecipeIngredients(ingredients);
+}
+
 function getMealSummary(mealEntry) {
   const entry = normalizeMealEntry(mealEntry);
   if (entry.title) return entry.title;
@@ -429,7 +433,8 @@ function normalizeMealEntry(mealEntry) {
   return {
     title,
     components,
-    recipeId: mealEntry?.recipeId || ""
+    recipeId: mealEntry?.recipeId || "",
+    ingredients: normalizeMealIngredients(mealEntry?.ingredients)
   };
 }
 
@@ -2415,6 +2420,65 @@ function openMealEntryEditor({ dateId, meal, dateLabel }) {
   notesInput.placeholder = "Opcional";
   notesField.append(notesInput);
 
+  const ingredientsSection = document.createElement("div");
+  ingredientsSection.className = "field recipe-modal__ingredients";
+  const ingredientsTitle = document.createElement("span");
+  ingredientsTitle.textContent = "Ingredientes";
+
+  const ingredientInputRow = document.createElement("div");
+  ingredientInputRow.className = "recipe-ingredient-input-row";
+  const ingredientInput = document.createElement("input");
+  ingredientInput.type = "text";
+  ingredientInput.placeholder = "Ej: tomate";
+  const ingredientAddButton = document.createElement("button");
+  ingredientAddButton.type = "button";
+  ingredientAddButton.className = "btn ghost";
+  ingredientAddButton.textContent = "Añadir";
+  ingredientInputRow.append(ingredientInput, ingredientAddButton);
+
+  const mealIngredientsList = document.createElement("ul");
+  mealIngredientsList.className = "recipe-ingredients-list";
+
+  const addIngredientToMealList = (value) => {
+    const label = value.trim();
+    if (!label) return;
+    const item = buildRecipeIngredientItem({
+      label,
+      categoryId: getRecipeIngredientCategoryId(label, ""),
+      includeInShopping: true
+    });
+    mealIngredientsList.append(item);
+    refreshRecipeIngredientsEmptyState(mealIngredientsList);
+  };
+
+  normalizeMealIngredients(currentEntry.ingredients).forEach((ingredient) => {
+    mealIngredientsList.append(buildRecipeIngredientItem(ingredient));
+  });
+  refreshRecipeIngredientsEmptyState(mealIngredientsList);
+
+  ingredientAddButton.addEventListener("click", () => {
+    addIngredientToMealList(ingredientInput.value);
+    ingredientInput.value = "";
+    ingredientInput.focus();
+  });
+
+  ingredientInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    ingredientAddButton.click();
+  });
+
+  const addToShoppingButton = document.createElement("button");
+  addToShoppingButton.type = "button";
+  addToShoppingButton.className = "btn ghost";
+  addToShoppingButton.textContent = "Añadir ingredientes";
+  addToShoppingButton.addEventListener("click", async () => {
+    const ingredients = getRecipeIngredientsFromList(mealIngredientsList);
+    await addRecipeIngredientsToShopping(ingredients);
+  });
+
+  ingredientsSection.append(ingredientsTitle, ingredientInputRow, mealIngredientsList, addToShoppingButton);
+
   const actions = document.createElement("div");
   actions.className = "app-modal__actions";
   const cancelButton = document.createElement("button");
@@ -2428,7 +2492,7 @@ function openMealEntryEditor({ dateId, meal, dateLabel }) {
   actions.append(cancelButton, saveButton);
 
   modal.prepend(title);
-  modal.append(notesField, actions);
+  modal.append(notesField, ingredientsSection, actions);
   overlay.append(modal);
   document.body.append(overlay);
   document.body.classList.add("has-app-modal");
@@ -2452,7 +2516,8 @@ function openMealEntryEditor({ dateId, meal, dateLabel }) {
         carbs: inputs.carbs.value,
         veggies: inputs.veggies.value
       },
-      recipeId: currentEntry.recipeId || ""
+      recipeId: currentEntry.recipeId || "",
+      ingredients: getRecipeIngredientsFromList(mealIngredientsList)
     });
     updateInputs(dateId, { lunch: day.lunch.entry, dinner: day.dinner.entry });
     scheduleSave(dateId, true);
