@@ -752,7 +752,18 @@ function scheduleSave(dateId, immediate = false) {
 }
 
 async function saveDay(dateId) {
-  if (!state.userId || !state.calendarId) return;
+  if (!state.calendarId) return;
+
+  if (!state.userId) {
+    state.pendingSaves += 1;
+    updateStatus();
+    const retryTimer = setTimeout(() => {
+      state.pendingSaves = Math.max(0, state.pendingSaves - 1);
+      saveDay(dateId);
+    }, 400);
+    return retryTimer;
+  }
+
   const elements = state.dayElements.get(dateId);
   if (!elements) return;
 
