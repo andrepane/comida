@@ -2401,6 +2401,16 @@ function openMealEntryEditor({ dateId, meal, dateLabel }) {
   title.className = "app-modal__title";
   title.textContent = `${mealKey === "lunch" ? "Comida" : "Cena"} · ${dateLabel}`;
 
+  const notesField = document.createElement("label");
+  notesField.className = "field";
+  notesField.innerHTML = "<span>Título</span>";
+  const notesInput = document.createElement("input");
+  notesInput.type = "text";
+  notesInput.value = currentEntry.title || "";
+  notesInput.placeholder = "Título";
+  notesField.append(notesInput);
+  modal.append(notesField);
+
   const fields = [
     ["protein", "Proteína (P)", "Ej: pollo plancha"],
     ["carbs", "Hidratos (H)", "Ej: arroz"],
@@ -2423,15 +2433,6 @@ function openMealEntryEditor({ dateId, meal, dateLabel }) {
     modal.append(wrapper);
     inputs[key] = input;
   });
-
-  const notesField = document.createElement("label");
-  notesField.className = "field";
-  notesField.innerHTML = "<span>Título / nota (opcional)</span>";
-  const notesInput = document.createElement("input");
-  notesInput.type = "text";
-  notesInput.value = currentEntry.title || "";
-  notesInput.placeholder = "Opcional";
-  notesField.append(notesInput);
 
   const quickIngredientsField = document.createElement("div");
   quickIngredientsField.className = "field meal-quick-ingredients";
@@ -2528,7 +2529,7 @@ function openMealEntryEditor({ dateId, meal, dateLabel }) {
   actions.append(cancelButton, saveButton);
 
   modal.prepend(title);
-  modal.append(notesField, quickIngredientsField, addIngredientsButton, actions);
+  modal.append(quickIngredientsField, addIngredientsButton, actions);
   overlay.append(modal);
   document.body.append(overlay);
   document.body.classList.add("has-app-modal");
