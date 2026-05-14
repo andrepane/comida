@@ -407,22 +407,6 @@ function normalizeMealComponents(components) {
   };
 }
 
-function normalizeMealIngredients(ingredients) {
-  if (!Array.isArray(ingredients)) return [];
-  return ingredients
-    .map((ingredient) => {
-      const label = ingredient?.label?.trim?.() ?? "";
-      const quantity = Math.max(1, Number(ingredient?.quantity) || 1);
-      const categoryId = getRecipeIngredientCategoryId(label, ingredient?.categoryId);
-      return {
-        label,
-        quantity,
-        categoryId
-      };
-    })
-    .filter((ingredient) => ingredient.label);
-}
-
 function getMealSummary(mealEntry) {
   const entry = normalizeMealEntry(mealEntry);
   if (entry.title) return entry.title;
@@ -437,8 +421,7 @@ function normalizeMealEntry(mealEntry) {
   if (typeof mealEntry === "string") {
     return {
       title: mealEntry.trim(),
-      components: { ...EMPTY_MEAL_COMPONENTS },
-      ingredients: []
+      components: { ...EMPTY_MEAL_COMPONENTS }
     };
   }
   const title = mealEntry?.title?.trim?.() ?? "";
@@ -446,8 +429,7 @@ function normalizeMealEntry(mealEntry) {
   return {
     title,
     components,
-    recipeId: mealEntry?.recipeId || "",
-    ingredients: normalizeMealIngredients(mealEntry?.ingredients)
+    recipeId: mealEntry?.recipeId || ""
   };
 }
 
@@ -2433,88 +2415,6 @@ function openMealEntryEditor({ dateId, meal, dateLabel }) {
   notesInput.placeholder = "Opcional";
   notesField.append(notesInput);
 
-  const quickIngredientsField = document.createElement("div");
-  quickIngredientsField.className = "field meal-quick-ingredients";
-  const quickIngredientsTitle = document.createElement("span");
-  quickIngredientsTitle.textContent = "Ingredientes rápidos";
-
-  const quickIngredientsInputRow = document.createElement("div");
-  quickIngredientsInputRow.className = "meal-quick-ingredients__input-row";
-  const quickIngredientsInput = document.createElement("input");
-  quickIngredientsInput.type = "text";
-  quickIngredientsInput.placeholder = "Ej: tomate";
-  quickIngredientsInput.setAttribute("aria-label", "Añadir ingrediente rápido");
-  const quickIngredientsAddButton = document.createElement("button");
-  quickIngredientsAddButton.type = "button";
-  quickIngredientsAddButton.className = "btn ghost meal-quick-ingredients__add";
-  quickIngredientsAddButton.setAttribute("aria-label", "Añadir ingrediente");
-  quickIngredientsAddButton.textContent = "+";
-  quickIngredientsInputRow.append(quickIngredientsInput, quickIngredientsAddButton);
-
-  const quickIngredientsList = document.createElement("div");
-  quickIngredientsList.className = "meal-quick-ingredients__list";
-  quickIngredientsList.setAttribute("aria-live", "polite");
-
-  const quickIngredients = normalizeMealIngredients(currentEntry.ingredients);
-  const renderQuickIngredients = () => {
-    quickIngredientsList.innerHTML = "";
-    quickIngredients.forEach((ingredient, index) => {
-      const chip = document.createElement("span");
-      chip.className = "meal-quick-ingredients__chip";
-      const label = document.createElement("span");
-      label.textContent = ingredient.label;
-      const removeButton = document.createElement("button");
-      removeButton.type = "button";
-      removeButton.className = "meal-quick-ingredients__remove";
-      removeButton.setAttribute("aria-label", `Quitar ${ingredient.label}`);
-      removeButton.textContent = "✕";
-      removeButton.addEventListener("click", () => {
-        quickIngredients.splice(index, 1);
-        renderQuickIngredients();
-      });
-      chip.append(label, removeButton);
-      quickIngredientsList.append(chip);
-    });
-  };
-
-  const addQuickIngredient = () => {
-    const label = quickIngredientsInput.value.trim();
-    if (!label) return;
-    const normalizedLabel = normalizeText(label);
-    const existing = quickIngredients.find((ingredient) => normalizeText(ingredient.label) === normalizedLabel);
-    if (existing) {
-      existing.quantity += 1;
-    } else {
-      quickIngredients.push({
-        label,
-        quantity: 1,
-        categoryId: getRecipeIngredientCategoryId(label, "")
-      });
-    }
-    quickIngredientsInput.value = "";
-    renderQuickIngredients();
-    quickIngredientsInput.focus();
-  };
-
-  quickIngredientsAddButton.addEventListener("click", addQuickIngredient);
-  quickIngredientsInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      addQuickIngredient();
-    }
-  });
-  renderQuickIngredients();
-  quickIngredientsField.append(quickIngredientsTitle, quickIngredientsInputRow, quickIngredientsList);
-
-  const addIngredientsButton = document.createElement("button");
-  addIngredientsButton.type = "button";
-  addIngredientsButton.className = "btn meal-quick-ingredients__submit";
-  addIngredientsButton.textContent = "🛒 Añadir ingredientes a la compra";
-  addIngredientsButton.addEventListener("click", async () => {
-    if (!quickIngredients.length) return;
-    await addRecipeIngredientsToShopping(quickIngredients);
-  });
-
   const actions = document.createElement("div");
   actions.className = "app-modal__actions";
   const cancelButton = document.createElement("button");
@@ -2528,7 +2428,7 @@ function openMealEntryEditor({ dateId, meal, dateLabel }) {
   actions.append(cancelButton, saveButton);
 
   modal.prepend(title);
-  modal.append(notesField, quickIngredientsField, addIngredientsButton, actions);
+  modal.append(notesField, actions);
   overlay.append(modal);
   document.body.append(overlay);
   document.body.classList.add("has-app-modal");
@@ -2552,8 +2452,7 @@ function openMealEntryEditor({ dateId, meal, dateLabel }) {
         carbs: inputs.carbs.value,
         veggies: inputs.veggies.value
       },
-      recipeId: currentEntry.recipeId || "",
-      ingredients: quickIngredients
+      recipeId: currentEntry.recipeId || ""
     });
     updateInputs(dateId, { lunch: day.lunch.entry, dinner: day.dinner.entry });
     scheduleSave(dateId, true);
@@ -2611,8 +2510,7 @@ async function addRecipeIngredientsToShopping(ingredients) {
       return {
         label,
         normalizedLabel: normalizeText(label),
-        categoryId: getRecipeIngredientCategoryId(label, ingredient.categoryId),
-        quantity: Math.max(1, Number(ingredient?.quantity) || 1)
+        categoryId: getRecipeIngredientCategoryId(label, ingredient.categoryId)
       };
     })
     .filter(Boolean);
@@ -2649,7 +2547,6 @@ async function addRecipeIngredientsToShopping(ingredients) {
     const label = ingredient?.label?.trim();
     if (!label) return;
     addShoppingItem(label, {
-      quantity: ingredient.quantity,
       categoryId: ingredient.categoryId,
       shouldPersist: false,
       shouldTrackSuggestions: false
