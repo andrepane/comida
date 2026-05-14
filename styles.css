@@ -722,6 +722,75 @@ body[data-theme="dark"] .meal-row {
   max-width: 100%;
 }
 
+.meal-quick-ingredients {
+  gap: 8px;
+}
+
+.meal-quick-ingredients__input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.meal-quick-ingredients__add {
+  min-width: 38px;
+  width: 38px;
+  padding: 0;
+}
+
+.meal-quick-ingredients__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.meal-quick-ingredients__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-soft) 88%, transparent);
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.meal-quick-ingredients__remove {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.meal-quick-ingredients__remove:hover {
+  background: color-mix(in srgb, var(--surface-soft) 70%, transparent);
+  color: var(--text);
+}
+
+.meal-quick-ingredients__submit {
+  width: 100%;
+}
+
+@media (max-width: 420px) {
+  .app-modal.meal-editor-modal {
+    padding: 14px;
+  }
+
+  .meal-quick-ingredients__chip {
+    font-size: 11px;
+    padding: 4px 7px;
+  }
+}
+
 .recipe-components-editor {
   display: grid;
   gap: 8px;
